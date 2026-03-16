@@ -1,169 +1,1170 @@
 <!DOCTYPE html>
+
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>NOCTUA — Floor Management</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/4.0.11/dexie.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet" />
-  <style>
-    /* デザイン設定：高級感のあるダークモード */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #06060e; color: #e2e8f0; font-family: 'Noto Sans JP', sans-serif; min-height: 100svh; padding-bottom: 30px; }
-    #header { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 60px; background: rgba(6,6,14,.9); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(124,58,237,.3); }
-    #logo-text { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 700; letter-spacing: .15em; color: #a78bfa; }
-    #main { padding: 15px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-    
-    /* 卓カード */
-    .table-card { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 15px; text-align: center; position: relative; min-height: 100px; }
-    .table-card.active { border-color: #7c3aed; background: rgba(124,58,237,0.1); }
-    .table-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-    .rem-time { font-size: 14px; font-weight: 700; color: #34d399; }
-    .rem-time.warn { color: #fbbf24; }
-    .rem-time.over { color: #ef4444; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#06060e"/>
+<title>NOCTUA — 席管理</title>
+<script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;-webkit-text-size-adjust:100%}
+body{background:#06060e;color:#e2e8f0;font-family:'Noto Sans JP',sans-serif;min-height:100svh;overscroll-behavior:none}
+input,button,select,textarea{font-family:inherit}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:#2d1f5e;border-radius:3px}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 
-    /* モーダル */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.8); display: flex; align-items: flex-end; z-index: 1000; }
-    .modal-sheet { width: 100%; max-height: 90vh; overflow-y: auto; background: #0d0d1a; border-top: 2px solid #7c3aed; border-radius: 20px 20px 0 0; padding: 20px; }
-    .btn { padding: 12px; border-radius: 8px; border: none; font-weight: 700; margin: 5px 0; cursor: pointer; width: 100%; }
-    .btn-primary { background: #7c3aed; color: #fff; }
-    .btn-secondary { background: #1e293b; color: #fff; border: 1px solid #334155; }
-    .input { width: 100%; padding: 12px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: white; margin: 8px 0; font-size: 16px; }
-    
-    /* 会計詳細 */
-    .bill-box { background: #161b22; padding: 15px; border-radius: 10px; margin-top: 10px; }
-    .bill-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
-    .total-row { font-size: 18px; font-weight: 700; color: #fbbf24; border-top: 1px solid #334155; margin-top: 8px; padding-top: 8px; }
-  </style>
+/* ── アニメーション ── */
+@keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(167,139,250,.5)}70%{box-shadow:0 0 0 8px rgba(167,139,250,0)}100%{box-shadow:0 0 0 0 rgba(167,139,250,0)}}
+@keyframes slide-up{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes toast-in{from{transform:translate(-50%,10px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+
+/* ── 背景グロー ── */
+#bg-glow{position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 90% 55% at 50% -8%,rgba(88,28,235,.22) 0%,transparent 65%)}
+
+/* ── ヘッダー ── */
+#hdr{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:0 14px;height:52px;background:rgba(6,6,14,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(124,58,237,.22)}
+.logo{display:flex;align-items:center;gap:8px}
+.logo-gem{color:#a78bfa;font-size:17px;filter:drop-shadow(0 0 8px #7c3aed)}
+.logo-text{font-family:‘Cinzel’,serif;font-size:16px;font-weight:700;letter-spacing:.15em}
+.hdr-stats{display:flex;gap:16px}
+.hs{text-align:center}
+.hs-num{font-size:15px;font-weight:700;line-height:1.1}
+.hs-lbl{font-size:9px;color:#475569;letter-spacing:.04em}
+
+/* ── タブバー ── */
+#tabbar{position:fixed;bottom:0;left:0;right:0;z-index:200;display:flex;background:rgba(6,6,14,.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(124,58,237,.18);padding-bottom:env(safe-area-inset-bottom,0)}
+.tb-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px 6px;font-size:9px;color:#475569;letter-spacing:.04em;background:none;border:none;min-height:52px;transition:color .15s}
+.tb-item.on{color:#a78bfa}
+.tb-item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin-bottom:3px}
+
+/* ── ページ ── */
+.page{display:none;padding:12px 12px 80px;position:relative;z-index:1;min-height:calc(100svh - 52px)}
+.page.on{display:block}
+
+/* ── フロアセクション ── */
+.sec-hdr{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:700;color:#64748b;letter-spacing:.1em;text-transform:uppercase;margin:14px 0 9px}
+.sec-dot{width:6px;height:6px;border-radius:50%;background:#7c3aed;box-shadow:0 0 7px #7c3aed;flex-shrink:0;display:inline-block}
+
+/* ── 卓グリッド ── */
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(152px,1fr));gap:10px;margin-bottom:10px}
+
+/* ── 卓カード ── */
+.tc{position:relative;border-radius:14px;padding:12px 12px 10px;border:1px solid rgba(255,255,255,.07);background:rgba(13,13,22,.8);min-height:112px;transition:transform .12s,box-shadow .12s;-webkit-tap-highlight-color:transparent;cursor:pointer}
+.tc:active{transform:scale(.97)}
+.tc.active{border-color:rgba(124,58,237,.5);background:rgba(124,58,237,.08)}
+.tc.warn{border-color:rgba(245,158,11,.52);background:rgba(245,158,11,.07)}
+.tc.over{border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.08)}
+.tc-pulse{position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:50%;background:#7c3aed;animation:pulse-ring 2s infinite}
+.tc-pulse.warn{background:#f59e0b}.tc-pulse.over{background:#ef4444}
+.tc-name{font-size:14px;font-weight:700;margin-bottom:5px;padding-right:18px}
+.tc-gid{font-size:10px;color:#7c3aed;margin-bottom:7px;letter-spacing:.03em;line-height:1.4}
+.tc-row{display:flex;gap:6px;margin-bottom:7px}
+.tc-st{flex:1;text-align:center}
+.tc-st-l{font-size:8px;color:#475569;font-weight:700}
+.tc-st-v{font-size:14px;font-weight:700}
+.tc-rem{font-size:12px;font-weight:700;text-align:center;margin-top:2px}
+.tc-cast{font-size:10px;color:#c084fc;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-memo{font-size:10px;color:#64748b;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-empty-plus{font-size:26px;color:#1a1a2e;display:block;text-align:center;padding:10px 0 2px;font-weight:300}
+.tc-empty-lbl{font-size:10px;color:#2d2d4a;text-align:center;letter-spacing:.06em}
+.tc-badge-empty{position:absolute;top:8px;right:8px;font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(100,116,139,.12);color:#3d4f63;border:1px solid rgba(100,116,139,.15);font-weight:700}
+.tc-cr-btn{position:absolute;bottom:8px;right:8px;font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;background:rgba(245,158,11,.14);color:#fbbf24;border:1px solid rgba(245,158,11,.28);-webkit-tap-highlight-color:transparent}
+
+/* ── ダッシュボードカード ── */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+.dc{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:13px;padding:13px 12px}
+.dc.full{grid-column:1/-1}
+.dc-lbl{font-size:9px;color:#64748b;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.dc-val{font-size:22px;font-weight:700;line-height:1.1}
+.dc-sub{font-size:11px;color:#64748b;margin-top:4px}
+
+/* ── 設定画面 ── */
+.stg-sec{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:13px;padding:14px;margin-bottom:12px}
+.stg-title{font-size:11px;font-weight:700;color:#a78bfa;letter-spacing:.09em;text-transform:uppercase;margin-bottom:12px}
+.stg-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.stg-row:last-child{border-bottom:none}
+.stg-lbl{font-size:13px;color:#94a3b8}
+.stg-val{font-size:13px;color:#a78bfa;font-weight:700}
+
+/* ── モーダル ── */
+.overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:flex-end;animation:fade-in .18s ease}
+.sheet{width:100%;max-height:95svh;background:#0b0b18;border-top:1px solid rgba(124,58,237,.32);border-radius:20px 20px 0 0;padding-bottom:env(safe-area-inset-bottom,16px);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 -10px 50px rgba(124,58,237,.2);animation:slide-up .22s ease}
+.sheet-handle{display:flex;justify-content:center;padding:10px 0 0}
+.sheet-bar{width:38px;height:4px;border-radius:2px;background:rgba(255,255,255,.13)}
+.sheet-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:11px 16px 13px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.sheet-title{font-size:18px;font-weight:700}
+.sheet-subs{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.sheet-close{background:rgba(255,255,255,.07);border:none;color:#94a3b8;width:36px;height:36px;border-radius:8px;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sheet-body{overflow-y:auto;padding:14px 16px 16px;flex:1;-webkit-overflow-scrolling:touch}
+
+/* ── フォーム ── */
+.slbl{font-size:10px;font-weight:700;color:#475569;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;margin-top:2px}
+.inp{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:13px 13px;color:#e2e8f0;font-size:16px;outline:none;margin-bottom:13px}
+.inp:focus{border-color:rgba(124,58,237,.5)}
+.inp-sm{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:11px 12px;color:#e2e8f0;font-size:16px;outline:none}
+.inp-sm:focus{border-color:rgba(124,58,237,.5)}
+.inp-pfx-wrap{position:relative}
+.inp-pfx{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#64748b;font-weight:700;pointer-events:none;font-size:15px}
+.inp-pfx-wrap .inp-sm{padding-left:24px;width:100%}
+.sel{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:13px;color:#e2e8f0;font-size:16px;outline:none;margin-bottom:13px;-webkit-appearance:none}
+.sel option{background:#0b0b18}
+.ta{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px 13px;color:#e2e8f0;font-size:15px;outline:none;resize:none;margin-bottom:13px;min-height:68px}
+
+/* ── ボタン ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid transparent;min-height:48px;padding:10px 14px;font-size:14px;font-weight:700;transition:opacity .12s,transform .1s;-webkit-tap-highlight-color:transparent}
+.btn:active{opacity:.7;transform:scale(.96)}
+.btn-full{width:100%}
+.btn-pri{background:linear-gradient(135deg,rgba(124,58,237,.78),rgba(167,139,250,.52));color:#fff;border:none;box-shadow:0 4px 20px rgba(124,58,237,.26);min-height:52px;font-size:15px;letter-spacing:.05em}
+.btn-sec{background:rgba(255,255,255,.07);color:#94a3b8;border:1px solid rgba(255,255,255,.1)}
+.btn-warn{background:rgba(245,158,11,.18);color:#fef3c7;border:1px solid rgba(245,158,11,.42)}
+.btn-danger{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.38)}
+.btn-danger:disabled{background:rgba(100,116,139,.1);color:#3d4f63;border-color:rgba(100,116,139,.15);cursor:not-allowed;opacity:.6}
+.btn-green{background:rgba(52,211,153,.14);color:#34d399;border:1px solid rgba(52,211,153,.3)}
+.btn-purple{background:rgba(124,58,237,.18);color:#a78bfa;border:1px solid rgba(124,58,237,.32)}
+.btn-join{background:rgba(52,211,153,.12);color:#34d399;border:1px solid rgba(52,211,153,.28);flex:1}
+.btn-leave{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.28);flex:1}
+.btn-grp{display:flex;gap:7px;margin-bottom:13px}
+.btn-counts{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px}
+.btn-c{flex:1 1 44px;min-height:50px;font-size:14px;background:rgba(124,58,237,.12);color:#a78bfa;border:1px solid rgba(124,58,237,.22);border-radius:10px;font-weight:700;-webkit-tap-highlight-color:transparent;transition:all .12s}
+.btn-c:active{transform:scale(.95)}
+.btn-c.on{background:rgba(124,58,237,.55);color:#fff;border-color:rgba(124,58,237,.72)}
+.btn-shimei{flex:1;min-height:54px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:rgba(232,121,249,.07);color:#c084fc;border:1px solid rgba(232,121,249,.18);font-size:12px;font-weight:700;-webkit-tap-highlight-color:transparent;transition:all .12s}
+.btn-shimei:active{transform:scale(.95)}
+.btn-shimei.on{background:rgba(232,121,249,.22);color:#f0abfc;border-color:rgba(232,121,249,.45)}
+.sp{font-size:10px;font-weight:500;opacity:.8}
+.btn-pay{flex:1;min-height:56px;border-radius:12px;font-size:14px;font-weight:700;-webkit-tap-highlight-color:transparent;transition:all .12s}
+.btn-pay:active{transform:scale(.96)}
+.btn-pay-cash{background:rgba(251,191,36,.28);color:#fef3c7;border:2px solid rgba(251,191,36,.58)}
+.btn-pay-card{background:rgba(167,139,250,.28);color:#ede9fe;border:2px solid rgba(167,139,250,.55)}
+.btn-pay-off{background:rgba(255,255,255,.04);color:#3d4f63;border:1px solid rgba(255,255,255,.06)}
+
+/* ── バッジ ── */
+.bdg{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px}
+
+/* ── ステータスボックス ── */
+.strow{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:13px}
+.stbox{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:9px 4px;text-align:center}
+.stbox-l{font-size:8px;color:#64748b;font-weight:700;margin-bottom:2px}
+.stbox-v{font-size:21px;font-weight:700;line-height:1}
+.stbox-u{font-size:9px;font-weight:400}
+
+/* ── 時間バー ── */
+.timebar{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:13px;padding:11px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05)}
+.ti{text-align:center}
+.ti-l{font-size:8px;color:#475569;font-weight:700;margin-bottom:2px}
+.ti-v{font-size:13px;font-weight:700;color:#94a3b8}
+
+/* ── ログ ── */
+.logbox{max-height:100px;overflow-y:auto;padding:7px;border-radius:9px;background:rgba(0,0,0,.28);margin-bottom:13px}
+.logitem{display:flex;gap:8px;font-size:11px;margin-bottom:3px;align-items:center}
+.log-t{font-weight:700;min-width:30px}
+.log-tm{color:#475569}
+.log-i{color:#94a3b8}
+
+/* ── 会計テーブル ── */
+.billtbl{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.br{display:flex;justify-content:space-between;align-items:center;padding:10px 13px;border-bottom:1px solid rgba(255,255,255,.04)}
+.br:last-child{border-bottom:none}
+.br-l{font-size:12px;color:#64748b}
+.br-v{font-size:13px;font-weight:500;color:#94a3b8}
+.br.bold .br-l{color:#e2e8f0;font-weight:700}
+.br.bold .br-v{font-size:16px;font-weight:700;color:#e2e8f0}
+
+/* ── CRリスト ── */
+.cr-scr{max-height:52svh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.cr-item{display:flex;align-items:center;gap:9px;padding:11px;border-radius:10px;margin-bottom:7px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06)}
+.cr-inf{flex:1}
+.cr-gid{font-size:11px;color:#a78bfa;font-weight:700;margin-bottom:3px}
+.cr-det{font-size:10px;color:#64748b}
+.cr-memo{font-size:10px;color:#7c3aed}
+
+/* ── 確認チェック ── */
+.ck-row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.ck-row input[type=checkbox]{width:22px;height:22px;accent-color:#7c3aed;flex-shrink:0}
+.ck-row label{font-size:13px;color:#94a3b8}
+
+/* ── トースト ── */
+#toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);padding:9px 20px;border-radius:10px;color:#fff;font-weight:700;font-size:13px;z-index:9999;white-space:nowrap;box-shadow:0 4px 24px rgba(0,0,0,.5);animation:toast-in .2s ease;pointer-events:none;display:none}
+
+/* ── ローダー ── */
+#loader{position:fixed;inset:0;z-index:9000;background:#06060e;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.lr{width:36px;height:36px;border:3px solid rgba(124,58,237,.22);border-top-color:#7c3aed;border-radius:50%;animation:spin .8s linear infinite}
+.lt{font-size:11px;color:#334155;letter-spacing:.1em}
+
+/* ── 検索バー ── */
+.searchbar{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:12px 13px;color:#e2e8f0;font-size:16px;outline:none;margin-bottom:12px}
+.searchbar:focus{border-color:rgba(124,58,237,.45)}
+
+/* ── インライン行 ── */
+.row2{display:flex;gap:8px;margin-bottom:13px}
+.row2 .inp-sm{flex:1}
+.row2 .inp-pfx-wrap{flex:1}
+.divider{border:none;border-top:1px solid rgba(255,255,255,.06);margin:14px 0}
+
+/* ── 席移動ボタン ── */
+.move-btn{display:block;width:100%;padding:12px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);color:#e2e8f0;font-size:14px;font-weight:600;text-align:left;-webkit-tap-highlight-color:transparent;margin-bottom:7px;transition:all .12s}
+.move-btn:active{transform:scale(.98)}
+.move-btn.selected{background:rgba(124,58,237,.18);border-color:rgba(124,58,237,.4);color:#a78bfa}
+.move-btn.disabled{color:#2d3748;cursor:not-allowed}
+</style>
+
 </head>
 <body>
+<div id="bg-glow"></div>
+<div id="loader"><div class="lr"></div><div class="lt">LOADING...</div></div>
+<div id="toast"></div>
 
-<header id="header">
-  <div id="logo-text">NOCTUA</div>
-  <div id="clock" style="font-weight: bold; color: #fbbf24;">00:00</div>
+<header id="hdr">
+  <div class="logo">
+    <span class="logo-gem">◆</span>
+    <span class="logo-text">NOCTUA</span>
+  </div>
+  <div class="hdr-stats">
+    <div class="hs"><div class="hs-num" id="hs-active" style="color:#a78bfa">0</div><div class="hs-lbl">稼働</div></div>
+    <div class="hs"><div class="hs-num" id="hs-sales" style="color:#fbbf24">¥0</div><div class="hs-lbl">本日売上</div></div>
+    <div class="hs"><div class="hs-num" id="hs-clock" style="color:#94a3b8">--:--</div><div class="hs-lbl">現在</div></div>
+  </div>
 </header>
 
-<main id="main"></main>
+<!-- ページ: 席管理 -->
+
+<div id="pg-floor" class="page on">
+  <div id="floor-body"></div>
+</div>
+
+<!-- ページ: ダッシュボード -->
+
+<div id="pg-dash" class="page">
+  <div class="dash-grid">
+    <div class="dc"><div class="dc-lbl">本日売上</div><div class="dc-val" id="d-sales" style="color:#fbbf24">¥0</div><div class="dc-sub" id="d-sales-sub">会計済み 0組</div></div>
+    <div class="dc"><div class="dc-lbl">平均客単価</div><div class="dc-val" id="d-avg" style="color:#a78bfa">¥0</div><div class="dc-sub" id="d-avg-sub"></div></div>
+    <div class="dc"><div class="dc-lbl">稼働中</div><div class="dc-val" id="d-active">0組</div><div class="dc-sub" id="d-active2">0名</div></div>
+    <div class="dc"><div class="dc-lbl">本日累計</div><div class="dc-val" id="d-total">0組</div><div class="dc-sub" id="d-total2">0名</div></div>
+    <div class="dc full"><div class="dc-lbl">本日の会計履歴</div><div id="d-history" style="margin-top:8px;font-size:12px;color:#475569">まだありません</div></div>
+  </div>
+</div>
+
+<!-- ページ: 設定 -->
+
+<div id="pg-settings" class="page">
+  <div class="stg-sec">
+    <div class="stg-title">料金設定</div>
+    <div class="stg-row"><span class="stg-lbl">セット時間</span><span class="stg-val" id="cfg-set-min">40分</span></div>
+    <div class="stg-row"><span class="stg-lbl">セット料金</span><span class="stg-val" id="cfg-set-price">¥3,000</span></div>
+    <div class="stg-row"><span class="stg-lbl">消費税</span><span class="stg-val" id="cfg-tax">10%</span></div>
+    <div class="stg-row"><span class="stg-lbl">サービス料</span><span class="stg-val" id="cfg-svc">10%</span></div>
+    <div class="stg-row"><span class="stg-lbl">カードTAX</span><span class="stg-val" id="cfg-card">10%</span></div>
+    <button class="btn btn-purple btn-full" style="margin-top:12px" onclick="openSettingsEdit()">設定を変更</button>
+  </div>
+  <div class="stg-sec">
+    <div class="stg-title">指名料金</div>
+    <div class="stg-row"><span class="stg-lbl">本指名</span><span class="stg-val" id="cfg-hon">¥3,000</span></div>
+    <div class="stg-row"><span class="stg-lbl">場内指名</span><span class="stg-val" id="cfg-banai">¥1,500</span></div>
+    <div class="stg-row"><span class="stg-lbl">同伴</span><span class="stg-val" id="cfg-dohan">¥5,000</span></div>
+  </div>
+  <div class="stg-sec">
+    <div class="stg-title">データ管理</div>
+    <button class="btn btn-danger btn-full" onclick="confirmClearData()">全データをリセット</button>
+  </div>
+</div>
+
+<!-- タブバー -->
+
+<nav id="tabbar">
+  <button class="tb-item on" onclick="showPage('floor')">
+    <svg viewBox="0 0 24 24"><path d="M3 9l9-6 9 6v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>席管理
+  </button>
+  <button class="tb-item" onclick="showPage('dash')">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>本日集計
+  </button>
+  <button class="tb-item" onclick="showPage('settings')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>設定
+  </button>
+</nav>
+
 <div id="modal-root"></div>
 
 <script>
-  // 設定
-  const SET_MINS = 40;
-  const SET_PRICE = 3000;
-  const TAX = 0.1, SVC = 0.1, CARD = 0.1;
+'use strict';
 
-  const db = new Dexie('NoctuaFullDB');
-  db.version(1).stores({ tables: 'id', groups: '++id, groupId, status' });
+/* ========================================================
+   DB
+   ======================================================== */
+const db = new Dexie('NoctuaV3');
+db.version(1).stores({
+  settings:    '++id',
+  tables_m:    '++id, tid, section',
+  vgroups:     '++id, gid, status, date',
+  vhistories:  '++id, gid, tid, check_in',
+  count_logs:  '++id, gid',
+  billings:    '++id, gid, date',
+});
 
-  async function init() {
-    for (let i=1; i<=8; i++) {
-      const id = `${i}番卓`;
-      if (!(await db.tables.get(id))) await db.tables.add({ id, status: 'empty', groupId: null });
-    }
-    render();
+/* ========================================================
+   デフォルト設定
+   ======================================================== */
+const DEF = {
+  set_min:40, set_price:3000,
+  tax:0.10, svc:0.10, card_tax:0.10,
+  hon:3000, banai:1500, dohan:5000,
+  vip:5000, ext_min:20, ext_price:1500,
+};
+let CFG = {...DEF};
+
+/* ========================================================
+   卓マスタ（デフォルト）
+   ======================================================== */
+const DEFAULT_TABLES = [
+  {tid:'T1', name:'1番卓', section:'VIP',      type:'ボックス'},
+  {tid:'T2', name:'2番卓', section:'VIP',      type:'ボックス'},
+  {tid:'T3', name:'3番卓', section:'メイン',   type:'ボックス'},
+  {tid:'T4', name:'4番卓', section:'メイン',   type:'ボックス'},
+  {tid:'T5', name:'5番卓', section:'メイン',   type:'ボックス'},
+  {tid:'T6', name:'6番卓', section:'カウンター',type:'カウンター'},
+  {tid:'T7', name:'7番卓', section:'カウンター',type:'カウンター'},
+  {tid:'T8', name:'8番卓', section:'カウンター',type:'カウンター'},
+];
+
+/* ========================================================
+   状態
+   ======================================================== */
+let ST = {
+  tables:[], groups:[], hists:[], logs:[], bills:[],
+  selTid: null,
+  // 新規入店フォーム
+  ni_count:2, ni_type:'free', ni_cast:'', ni_time:'', ni_memo:'',
+  // 会計確認
+  bill_confirmed: false,
+  // CR検索
+  cr_search:'',
+  // 席移動
+  move_target: null,
+};
+
+/* ========================================================
+   ユーティリティ
+   ======================================================== */
+const $ = id => document.getElementById(id);
+const fmtYen = n => `¥${Math.round(n||0).toLocaleString('ja-JP')}`;
+const fmtTime = iso => {
+  if(!iso) return '--:--';
+  const d = new Date(iso);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const pad = n => String(n).padStart(2,'0');
+const todayStr = () => {
+  const n=new Date();
+  return `${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}`;
+};
+const nowISO = () => new Date().toISOString();
+const todayISO = () => {
+  const n=new Date();
+  return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`;
+};
+
+function nowTimeStr() {
+  const n=new Date();
+  return `${pad(n.getHours())}:${pad(n.getMinutes())}`;
+}
+
+function timeStrToISO(timeStr, baseDate) {
+  // HH:MM → ISO（深夜5時まで翌日扱い）
+  const [h,m] = timeStr.split(':').map(Number);
+  const base = baseDate ? new Date(baseDate) : new Date();
+  const d = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m, 0);
+  // 深夜0〜5時は翌日
+  if(h < 6) d.setDate(d.getDate()+1);
+  return d.toISOString();
+}
+
+function generateGid(existingGids) {
+  const td = todayStr();
+  const nums = existingGids
+    .filter(id=>id&&id.startsWith(td))
+    .map(id=>parseInt(id.split('-')[1]||'0'))
+    .filter(n=>!isNaN(n));
+  const next = nums.length>0 ? Math.max(...nums)+1 : 1;
+  return `${td}-${pad(pad(next))}`;
+}
+
+// セット数計算（全履歴合算）
+function calcSets(hists) {
+  if(!hists.length) return 0;
+  // 手動セット数（最初の非CRレコードに記録）
+  const base = hists.find(h=>!h.is_cr)||hists[0];
+  if(base.manual_sets != null) return base.manual_sets;
+  const totalMs = hists.reduce((acc,h)=>{
+    const inn = new Date(h.check_in).getTime();
+    const out = h.check_out ? new Date(h.check_out).getTime() : Date.now();
+    return acc + Math.max(0, out-inn);
+  }, 0);
+  return Math.max(1, Math.ceil(totalMs/60000/CFG.set_min));
+}
+
+function calcRemMin(checkIn, sets) {
+  const exp = new Date(checkIn).getTime() + sets*CFG.set_min*60000;
+  return Math.round((exp - Date.now())/60000);
+}
+function fmtRem(min) {
+  if(min<=0)  return {text:`超過${Math.abs(min)}分`, cls:'over'};
+  if(min<15)  return {text:`残${min}分`,             cls:'warn'};
+  if(min<60)  return {text:`残${min}分`,             cls:''};
+  return            {text:`残${Math.floor(min/60)}h${min%60}m`, cls:''};
+}
+
+// 会計計算
+// 小計 = 大計÷(1+TAX+SVC)
+// 現金大計 = セット代+指名+飲食 → ×(1+SVC)×(1+TAX)
+// カード大計 = 現金大計×(1+CardTAX)
+function calcBill(sets, billing, shimeiPrc, food) {
+  const setAmt   = CFG.set_price * billing * sets;
+  const preTotal = setAmt + (shimeiPrc||0) + (food||0);
+  const cashBig  = Math.round(preTotal * (1+CFG.svc) * (1+CFG.tax));
+  const cardBig  = Math.round(cashBig  * (1+CFG.card_tax));
+  const small    = Math.round(cashBig  / ((1+CFG.tax)*(1+CFG.svc)));
+  const svcAmt   = Math.round(preTotal * CFG.svc);
+  const taxAmt   = Math.round((preTotal+svcAmt) * CFG.tax);
+  return {setAmt, preTotal, svcAmt, taxAmt, cashBig, cardBig, small};
+}
+
+let _toastT = null;
+function toast(msg, type='ok') {
+  const el=$('toast');
+  el.textContent=msg; el.style.display='block';
+  el.style.background = type==='err'?'rgba(220,38,38,.93)':type==='info'?'rgba(109,40,217,.93)':'rgba(5,150,105,.93)';
+  clearTimeout(_toastT);
+  _toastT = setTimeout(()=>{el.style.display='none';},3000);
+}
+
+/* ========================================================
+   DB ロード
+   ======================================================== */
+async function loadAll() {
+  const [cfg,tables,groups,hists,logs,bills] = await Promise.all([
+    db.settings.toCollection().last(),
+    db.tables_m.toArray(),
+    db.vgroups.toArray(),
+    db.vhistories.toArray(),
+    db.count_logs.toArray(),
+    db.billings.toArray(),
+  ]);
+  if(cfg) CFG = {...DEF,...cfg};
+  if(!tables.length) {
+    for(const t of DEFAULT_TABLES) await db.tables_m.add(t);
+    ST.tables = await db.tables_m.toArray();
+  } else {
+    ST.tables = tables;
   }
+  ST.groups = groups;
+  ST.hists  = hists;
+  ST.logs   = logs;
+  ST.bills  = bills;
+}
 
-  async function render() {
-    const data = await db.tables.toArray();
-    document.getElementById('main').innerHTML = data.map(t => {
-      let extra = '';
-      if (t.status === 'active') {
-        const rem = Math.max(0, SET_MINS - Math.floor((Date.now() - t.startTime)/60000));
-        extra = `<div class="rem-time ${rem < 10 ? 'warn' : ''}">${rem}分</div><div style="font-size:11px">${t.count}名 / ¥${t.food}</div>`;
+/* ========================================================
+   ページ切替
+   ======================================================== */
+function showPage(pg) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tb-item').forEach(b=>b.classList.remove('on'));
+  $(`pg-${pg}`).classList.add('on');
+  const idx = {floor:0,dash:1,settings:2}[pg]??0;
+  document.querySelectorAll('.tb-item')[idx]?.classList.add('on');
+  if(pg==='floor')    renderFloor();
+  if(pg==='dash')     renderDash();
+  if(pg==='settings') renderSettings();
+}
+
+/* ========================================================
+   ヘッダー更新
+   ======================================================== */
+function updateHeader() {
+  const active = ST.hists.filter(h=>!h.check_out);
+  $('hs-active').textContent = active.length;
+  const td = todayStr();
+  const todayBills = ST.bills.filter(b=>b.date===td);
+  const sales = todayBills.reduce((a,b)=>a+(b.cash_big||0),0);
+  $('hs-sales').textContent = sales>=10000?`¥${Math.round(sales/1000)}k`:fmtYen(sales);
+  const n=new Date();
+  $('hs-clock').textContent = `${pad(n.getHours())}:${pad(n.getMinutes())}`;
+}
+
+/* ========================================================
+   フロア描画
+   ======================================================== */
+function getActiveHist(tid) {
+  return ST.hists.find(h=>h.tid===tid&&!h.check_out);
+}
+function getGroupHists(gid) {
+  return ST.hists.filter(h=>h.gid===gid);
+}
+
+function renderFloor() {
+  const sections = [...new Set(ST.tables.map(t=>t.section))];
+  const closedGroups = ST.groups.filter(g=>g.status==='closed');
+  let html = '';
+  sections.forEach(sec=>{
+    html += `<div class="sec-hdr"><span class="sec-dot"></span>${sec}</div><div class="tgrid">`;
+    ST.tables.filter(t=>t.section===sec).forEach(tbl=>{
+      const h = getActiveHist(tbl.tid);
+      if(h) {
+        const gh   = getGroupHists(h.gid);
+        const sets = calcSets(gh);
+        const rem  = calcRemMin(h.check_in, sets);
+        const rf   = fmtRem(rem);
+        const rc   = rf.cls==='over'?'#f87171':rf.cls==='warn'?'#fbbf24':'#34d399';
+        const shimei = h.shimei_label ? `♦${h.shimei_label}` : (h.is_free?'フリー':'');
+        const castDisp = h.cast_name ? ` / ${h.cast_name}` : '';
+        html += `
+        <div class="tc active ${rf.cls}" onclick="openManage('${tbl.tid}')">
+          <span class="tc-pulse ${rf.cls}"></span>
+          <div class="tc-name">${tbl.name}</div>
+          <div class="tc-gid">${h.gid}${h.is_cr?'<span style="color:#fbbf24;margin-left:4px;font-size:9px">CR</span>':''}</div>
+          <div class="tc-row">
+            <div class="tc-st"><div class="tc-st-l">現在</div><div class="tc-st-v">${h.current_count}<small style="font-size:9px">名</small></div></div>
+            <div class="tc-st"><div class="tc-st-l">課金</div><div class="tc-st-v" style="color:#fbbf24">${h.billing_count}<small style="font-size:9px">名</small></div></div>
+            <div class="tc-st"><div class="tc-st-l">SET</div><div class="tc-st-v" style="color:#a78bfa">${sets}</div></div>
+          </div>
+          <div class="tc-rem ${rf.cls}" style="color:${rc}">${rf.text}</div>
+          ${shimei?`<div class="tc-cast">${shimei}${castDisp}</div>`:''}
+          ${h.memo?`<div class="tc-memo">📝${h.memo}</div>`:''}
+        </div>`;
+      } else {
+        const hasCR = closedGroups.length>0;
+        html += `
+        <div class="tc" onclick="openNew('${tbl.tid}')">
+          <div class="tc-name">${tbl.name}</div>
+          <span class="tc-badge-empty">空席</span>
+          <span class="tc-empty-plus">+</span>
+          <div class="tc-empty-lbl">案内する</div>
+          ${hasCR?`<button class="tc-cr-btn" onclick="event.stopPropagation();openCR('${tbl.tid}')">CR</button>`:''}
+        </div>`;
       }
-      return `<div class="table-card ${t.status === 'active' ? 'active' : ''}" onclick="openModal('${t.id}')">
-        <div class="table-name">${t.id}</div>
-        ${t.status === 'active' ? extra : '<div style="color:#475569; font-size:12px">空席</div>'}
-      </div>`;
-    }).join('');
-  }
+    });
+    html += '</div>';
+  });
+  $('floor-body').innerHTML = html;
+}
 
-  async function openModal(id) {
-    const t = await db.tables.get(id);
-    const root = document.getElementById('modal-root');
-    if (t.status === 'empty') {
-      root.innerHTML = `<div class="modal-overlay" onclick="this.parentElement.innerHTML=''"><div class="modal-sheet" onclick="event.stopPropagation()">
-        <h3>${id}：新規入店</h3>
-        <input type="number" id="c" class="input" value="2" placeholder="人数" inputmode="numeric">
-        <button class="btn btn-primary" onclick="start('${id}')">入店処理</button>
-        <button class="btn btn-secondary" onclick="openCR('${id}')">CR（再入店）を検索</button>
-      </div></div>`;
-    } else {
-      const sub = (SET_PRICE * t.count) + Number(t.food) + Number(t.shimei || 0);
-      const cash = Math.floor(sub * (1+SVC) * (1+TAX));
-      root.innerHTML = `<div class="modal-overlay" onclick="this.parentElement.innerHTML=''"><div class="modal-sheet" onclick="event.stopPropagation()">
-        <h3>${id} 管理</h3>
-        <div class="bill-box">
-          <div class="bill-row"><span>人数</span><span>${t.count}名</span></div>
-          <div class="bill-row"><span>指名料</span><input type="number" class="input" style="width:100px;margin:0" value="${t.shimei || 0}" onchange="upd('${id}','shimei',this.value)"></div>
-          <div class="bill-row"><span>ボトル・飲食</span><input type="number" class="input" style="width:100px;margin:0" value="${t.food}" onchange="upd('${id}','food',this.value)"></div>
-          <div class="bill-row total-row"><span>現金合計</span><span>¥${cash.toLocaleString()}</span></div>
-          <div class="bill-row" style="color:#a78bfa"><span>カード合計</span><span>¥${Math.floor(cash*(1+CARD)).toLocaleString()}</span></div>
+/* ========================================================
+   モーダルヘルパー
+   ======================================================== */
+function showModal(html) {
+  $('modal-root').innerHTML = `
+    <div class="overlay" onclick="closeModal()">
+      <div class="sheet" onclick="event.stopPropagation()">${html}</div>
+    </div>`;
+}
+function closeModal() {
+  $('modal-root').innerHTML='';
+}
+const handle = body =>
+  `<div class="sheet-handle"><div class="sheet-bar"></div></div>${body}`;
+function sheetHdr(title, sub='') {
+  return `<div class="sheet-hdr">
+    <div>
+      <div class="sheet-title">${title}</div>
+      ${sub?`<div class="sheet-subs">${sub}</div>`:''}
+    </div>
+    <button class="sheet-close" onclick="closeModal()">✕</button>
+  </div>`;
+}
+function badge(text, color, bg) {
+  return `<span class="bdg" style="background:${bg};color:${color};border:1px solid ${color}55">${text}</span>`;
+}
+
+/* ========================================================
+   新規入店
+   ======================================================== */
+function openNew(tid) {
+  ST.selTid = tid;
+  ST.ni_count=2; ST.ni_type='free'; ST.ni_cast=''; ST.ni_memo='';
+  ST.ni_time = nowTimeStr();
+  const tbl = ST.tables.find(t=>t.tid===tid);
+  _renderNewModal(tbl);
+}
+function _renderNewModal(tbl) {
+  const counts = [1,2,3,4,5,6].map(n=>
+    `<button class="btn-c ${ST.ni_count===n?'on':''}" onclick="niSetCount(${n})">${n}名</button>`
+  ).join('');
+  showModal(handle(sheetHdr(`${tbl.name} — 新規入店`) + `
+    <div class="sheet-body">
+      <div class="slbl">入店時間（5分単位）</div>
+      <input class="inp" type="time" id="ni-time" value="${ST.ni_time}" step="300" oninput="ST.ni_time=this.value"/>
+      <div class="slbl">入店人数</div>
+      <div class="btn-counts" id="ni-counts">${counts}</div>
+      <div class="slbl">本指名 / フリー</div>
+      <div class="btn-grp">
+        <button class="btn ${ST.ni_type==='hon'?'btn-purple':'btn-sec'}" onclick="niSetType('hon')">♦ 本指名</button>
+        <button class="btn ${ST.ni_type==='free'?'btn-purple':'btn-sec'}" onclick="niSetType('free')">フリー</button>
+      </div>
+      <div class="slbl">メモ（予約名など）</div>
+      <input class="inp" type="text" placeholder="任意" value="${ST.ni_memo}" oninput="ST.ni_memo=this.value"/>
+      <button class="btn btn-pri btn-full" onclick="doNewEntry()">入店処理を確定</button>
+    </div>`));
+}
+function niSetCount(n) {
+  ST.ni_count=n;
+  const tbl = ST.tables.find(t=>t.tid===ST.selTid);
+  _renderNewModal(tbl);
+}
+function niSetType(t) {
+  ST.ni_type=t;
+  const tbl = ST.tables.find(t2=>t2.tid===ST.selTid);
+  _renderNewModal(tbl);
+}
+async function doNewEntry() {
+  const allGids = ST.groups.map(g=>g.gid);
+  const gid     = generateGid(allGids);
+  const timeVal = $('ni-time')?.value || nowTimeStr();
+  const checkIn = timeStrToISO(timeVal);
+  const n       = ST.ni_count;
+  const td      = todayStr();
+
+  await db.transaction('rw',[db.vgroups,db.vhistories,db.count_logs],async()=>{
+    await db.vgroups.add({
+      gid, status:'active', date:td,
+      entry_count:n, total_billing:n,
+      memo:ST.ni_memo, created_at:nowISO(),
+    });
+    const hid = await db.vhistories.add({
+      gid, tid:ST.selTid,
+      check_in:checkIn, check_out:null,
+      entry_count:n, current_count:n, billing_count:n,
+      set_min:CFG.set_min, manual_sets:null,
+      is_cr:false, sequence:1,
+      is_free:ST.ni_type==='free',
+      shimei_label:null, shimei_price:0,
+      cast_name:'', food_amount:0, memo:ST.ni_memo,
+    });
+    await db.count_logs.add({
+      gid, hist_id:hid,
+      change_type:'entry', delta:n,
+      current_count:n, billing_count:n,
+      logged_at:checkIn,
+    });
+  });
+  closeModal();
+  toast(`${gid} 入店完了`);
+  await refresh();
+}
+
+/* ========================================================
+   卓管理モーダル（メイン）
+   ======================================================== */
+async function openManage(tid) {
+  ST.selTid = tid;
+  _renderManageModal();
+}
+
+function _renderManageModal() {
+  const tbl  = ST.tables.find(t=>t.tid===ST.selTid);
+  const h    = getActiveHist(ST.selTid);
+  if(!h){ renderFloor(); return; }
+  const gh   = getGroupHists(h.gid);
+  const sets = calcSets(gh);
+  const rem  = calcRemMin(h.check_in, sets);
+  const rf   = fmtRem(rem);
+  const bill = calcBill(sets, h.billing_count, h.shimei_price||0, h.food_amount||0);
+  const logs = ST.logs.filter(l=>l.gid===h.gid);
+  const isCR = gh.some(x=>x.is_cr);
+  const rc   = rf.cls==='over'?'#f87171':rf.cls==='warn'?'#fbbf24':'#34d399';
+
+  const logsHtml = logs.length
+    ? logs.map(l=>`
+      <div class="logitem">
+        <span class="log-t" style="color:${l.change_type==='entry'?'#60a5fa':l.change_type==='join'?'#34d399':'#f87171'}">
+          ${l.change_type==='entry'?'入店':l.change_type==='join'?'合流':'退席'}
+        </span>
+        <span class="log-tm">${fmtTime(l.logged_at)}</span>
+        <span class="log-i">${l.delta>0?'+':''}${l.delta}名 現在${l.current_count}名/課金${l.billing_count}名</span>
+      </div>`).join('')
+    : '<div style="color:#334155;font-size:11px;text-align:center">ログなし</div>';
+
+  const shimeis = [
+    {label:'本指名', price:CFG.hon},
+    {label:'場内',   price:CFG.banai},
+    {label:'同伴',   price:CFG.dohan},
+  ];
+  const shimeiHtml = shimeis.map(s=>
+    `<button class="btn-shimei ${h.shimei_label===s.label?'on':''}" onclick="doShimei('${s.label}',${s.price})">
+      <span>${s.label}</span><span class="sp">${fmtYen(s.price)}</span>
+    </button>`
+  ).join('');
+
+  const subs = [
+    badge(h.gid,'#a78bfa','rgba(124,58,237,.18)'),
+    isCR ? badge('CR','#fbbf24','rgba(245,158,11,.18)') : '',
+    h.manual_sets!=null ? badge('手動','#34d399','rgba(16,185,129,.14)') : '',
+    h.shimei_label ? badge(h.shimei_label,'#f0abfc','rgba(232,121,249,.18)') : '',
+    h.is_free ? badge('フリー','#64748b','rgba(100,116,139,.12)') : '',
+  ].filter(Boolean).join('');
+
+  showModal(handle(sheetHdr(tbl.name, subs) + `
+    <div class="sheet-body">
+      <!-- ステータス4格子 -->
+      <div class="strow">
+        <div class="stbox"><div class="stbox-l">入店</div><div class="stbox-v">${h.entry_count}<span class="stbox-u">名</span></div></div>
+        <div class="stbox"><div class="stbox-l">現在</div><div class="stbox-v">${h.current_count}<span class="stbox-u">名</span></div></div>
+        <div class="stbox"><div class="stbox-l">課金</div><div class="stbox-v" style="color:#fbbf24">${h.billing_count}<span class="stbox-u">名</span></div></div>
+        <div class="stbox"><div class="stbox-l">SET</div><div class="stbox-v" style="color:#a78bfa">${sets}<span class="stbox-u">S</span></div></div>
+      </div>
+      <!-- 時間バー -->
+      <div class="timebar">
+        <div class="ti"><div class="ti-l">入店時刻</div><div class="ti-v">${fmtTime(h.check_in)}</div></div>
+        <div class="ti"><div class="ti-l">残り時間</div><div class="ti-v" style="color:${rc};font-weight:700">${rf.text}</div></div>
+        <div class="ti"><div class="ti-l">暫定(現金)</div><div class="ti-v" style="color:#fbbf24;font-weight:700">${fmtYen(bill.cashBig)}</div></div>
+      </div>
+      <!-- 人数操作 -->
+      <div class="slbl">人数操作</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px">
+        <div>
+          <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:6px">合流</div>
+          <div class="btn-grp">
+            <button class="btn btn-join" onclick="doCount(1,'join')">+1</button>
+            <button class="btn btn-join" onclick="doCount(2,'join')">+2</button>
+            <button class="btn btn-join" onclick="doCount(3,'join')">+3</button>
+          </div>
         </div>
-        <button class="btn btn-secondary" onclick="addCount('${id}', 1)">人数追加 (+1)</button>
-        <button class="btn btn-primary" style="background:#f59e0b" onclick="checkout('${id}')">会計確定・退店</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('modal-root').innerHTML=''">閉じる</button>
-      </div></div>`;
-    }
-  }
+        <div>
+          <div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:6px">退席</div>
+          <div class="btn-grp">
+            <button class="btn btn-leave" onclick="doCount(1,'leave')">-1</button>
+            <button class="btn btn-leave" onclick="doCount(2,'leave')">-2</button>
+            <button class="btn btn-leave" onclick="doCount(3,'leave')">-3</button>
+          </div>
+        </div>
+      </div>
+      <!-- 指名 -->
+      <div class="slbl">指名</div>
+      <div class="btn-grp" style="margin-bottom:13px">${shimeiHtml}</div>
+      <!-- キャスト名 -->
+      <div class="slbl">指名キャスト名</div>
+      <input class="inp" type="text" placeholder="キャスト名（任意）" value="${h.cast_name||''}" oninput="doCastName(this.value)"/>
+      <!-- 飲食代 -->
+      <div class="slbl">飲食・ボトル代</div>
+      <div class="inp-pfx-wrap" style="margin-bottom:13px">
+        <span class="inp-pfx">¥</span>
+        <input class="inp-sm" type="number" inputmode="numeric" placeholder="0" value="${h.food_amount||''}" oninput="doFood(this.value)" style="width:100%"/>
+      </div>
+      <!-- セット手動修正 -->
+      <div class="slbl">セット数（手動修正）</div>
+      <div class="row2" style="align-items:center;margin-bottom:13px">
+        <input class="inp-sm" type="number" inputmode="numeric" placeholder="自動: ${sets}S" value="${h.manual_sets!=null?h.manual_sets:''}" oninput="doManualSets(this.value)" style="width:100px"/>
+        <span style="color:#475569;font-size:12px">${CFG.set_min}分/セット</span>
+        ${h.manual_sets!=null?`<button class="btn btn-sec" style="min-height:42px;padding:8px 12px;font-size:12px" onclick="doManualSets('')">リセット</button>`:''}
+      </div>
+      <!-- 退店時間入力 -->
+      <div class="slbl">退店予定時間（任意）</div>
+      <input class="inp" type="time" step="300" value="${h.expected_out||''}" oninput="doExpectedOut(this.value)"/>
+      <!-- メモ -->
+      <div class="slbl">卓メモ</div>
+      <textarea class="ta" placeholder="自由入力" oninput="doMemo(this.value)">${h.memo||''}</textarea>
 
-  async function start(id) {
-    const c = document.getElementById('c').value;
-    const gId = 'G' + Date.now().toString().slice(-6);
-    await db.tables.update(id, { status: 'active', groupId: gId, count: Number(c), food: 0, shimei: 0, startTime: Date.now() });
-    await db.groups.add({ groupId: gId, status: 'active' });
-    document.getElementById('modal-root').innerHTML = '';
-    render();
-  }
+```
+  <!-- 人数変動ログ -->
+  <div class="slbl">人数変動ログ</div>
+  <div class="logbox">${logsHtml}</div>
+  <hr class="divider"/>
+  <!-- 操作ボタン群 -->
+  <button class="btn btn-purple btn-full" style="margin-bottom:8px" onclick="openMoveTable()">席移動</button>
+  <button class="btn btn-warn btn-full" style="margin-bottom:8px" onclick="openBilling()">会計・退店</button>
+</div>`));
+```
 
-  async function upd(id, key, val) {
-    let data = {}; data[key] = Number(val);
-    await db.tables.update(id, data);
-    openModal(id);
-    render();
-  }
+}
 
-  async function addCount(id, n) {
-    const t = await db.tables.get(id);
-    await db.tables.update(id, { count: t.count + n });
-    openModal(id);
-    render();
-  }
+/* ========================================================
+人数変更
+======================================================== */
+async function doCount(delta, type) {
+const h = getActiveHist(ST.selTid);
+if(!h||h.id==null) return;
+const newCur  = Math.max(1, h.current_count + (type===‘leave’?-delta:delta));
+const newBill = type===‘join’ ? h.billing_count+delta : h.billing_count;
+const now = nowISO();
+await db.transaction(‘rw’,[db.vhistories,db.count_logs],async()=>{
+await db.vhistories.update(h.id,{current_count:newCur,billing_count:newBill});
+await db.count_logs.add({
+gid:h.gid, hist_id:h.id,
+change_type:type, delta,
+current_count:newCur, billing_count:newBill,
+logged_at:now,
+});
+// グループのtotal_billingも更新
+if(type===‘join’){
+const g = ST.groups.find(x=>x.gid===h.gid);
+if(g) await db.vgroups.update(g.id,{total_billing:(g.total_billing||0)+delta});
+}
+});
+toast(type===‘join’?`+${delta}名 合流`:`-${delta}名 退席`,‘info’);
+await refresh();
+_renderManageModal();
+}
 
-  async function checkout(id) {
-    if (!confirm('会計を確定しますか？')) return;
-    const t = await db.tables.get(id);
-    await db.groups.where('groupId').equals(t.groupId).modify({ status: 'closed' });
-    await db.tables.update(id, { status: 'empty', groupId: null });
-    document.getElementById('modal-root').innerHTML = '';
-    render();
-  }
+/* ========================================================
+指名
+======================================================== */
+async function doShimei(label, price) {
+const h = getActiveHist(ST.selTid);
+if(!h||h.id==null) return;
+const same = h.shimei_label===label;
+await db.vhistories.update(h.id,{
+shimei_label: same?null:label,
+shimei_price: same?0:price,
+is_free: same?true:false,
+});
+await refresh();
+_renderManageModal();
+}
 
-  async function openCR(id) {
-    const closed = await db.groups.where('status').equals('closed').toArray();
-    const root = document.getElementById('modal-root');
-    root.innerHTML = `<div class="modal-overlay" onclick="this.parentElement.innerHTML=''"><div class="modal-sheet" onclick="event.stopPropagation()">
-      <h3>CR選択</h3>
-      ${closed.map(g => `<button class="btn btn-secondary" onclick="reEnter('${id}','${g.groupId}')">${g.groupId} を再入店</button>`).join('')}
-      <button class="btn btn-primary" onclick="openModal('${id}')">戻る</button>
-    </div></div>`;
-  }
+/* ========================================================
+キャスト名・飲食代・セット・予定退店・メモ
+======================================================== */
+async function doCastName(v) {
+const h = getActiveHist(ST.selTid);
+if(!h||h.id==null) return;
+await db.vhistories.update(h.id,{cast_name:v});
+await refresh();
+}
+async function doFood(v) {
+const h = getActiveHist(ST.selTid);
+if(!h||h.id==null) return;
+await db.vhistories.update(h.id,{food_amount:parseInt(v)||0});
+await refresh();
+// 金額のみリフレッシュ（モーダル再描画しない）
+}
+async function doManualSets(v) {
+const h = getActiveHist(ST.selTid);
+if(!h||h.id==null) return;
+const n = v===’’?null:Math.max(1,parseInt(v)||1);
+await db.vhistories.update(h.id,{manual_sets:n});
+await refresh();
+_renderManageModal();
+}
+async function doExpectedOut(v) {
+const h = getActiveHist(ST.selTid);
+if(!h||h.id==null) return;
+await db.vhistories.update(h.id,{expected_out:v});
+await refresh();
+}
+async function doMemo(v) {
+const h = getActiveHist(ST.selTid);
+if(!h||h.id==null) return;
+await db.vhistories.update(h.id,{memo:v});
+await refresh();
+}
 
-  async function reEnter(tid, gid) {
-    await db.tables.update(tid, { status: 'active', groupId: gid, count: 2, food: 0, shimei: 0, startTime: Date.now() });
-    await db.groups.where('groupId').equals(gid).modify({ status: 'active' });
-    document.getElementById('modal-root').innerHTML = '';
-    render();
-  }
+/* ========================================================
+席移動
+======================================================== */
+function openMoveTable() {
+const h = getActiveHist(ST.selTid);
+if(!h) return;
+// 空席卓のみ選択可能
+const empties = ST.tables.filter(t=>{
+if(t.tid===ST.selTid) return false;
+return !getActiveHist(t.tid);
+});
+const btns = empties.length
+? empties.map(t=>` <button class="move-btn" onclick="doMoveTable('${t.tid}')"> <span style="font-size:14px;font-weight:700">${t.name}</span> <span style="font-size:11px;color:#64748b;margin-left:8px">${t.section}</span> </button>`).join(’’)
+: ‘<div style="color:#334155;text-align:center;padding:24px;font-size:13px">移動できる空席がありません</div>’;
 
-  setInterval(() => {
-    const n = new Date();
-    document.getElementById('clock').textContent = n.toTimeString().slice(0,5);
-    render();
-  }, 10000);
-  init();
+showModal(handle(sheetHdr(‘席移動先を選択’) + ` <div class="sheet-body"> <div style="font-size:12px;color:#64748b;margin-bottom:12px"> ${badge(h.gid,'#a78bfa','rgba(124,58,237,.18)')} を移動します </div> ${btns} <button class="btn btn-sec btn-full" style="margin-top:6px" onclick="_renderManageModal()">キャンセル</button> </div>`));
+}
+
+async function doMoveTable(newTid) {
+const h = getActiveHist(ST.selTid);
+if(!h||h.id==null) return;
+const now = nowISO();
+const newTbl = ST.tables.find(t=>t.tid===newTid);
+
+// 現在の履歴に終了時間をセット → 新しい履歴を同じgidで追加
+await db.transaction(‘rw’,[db.vhistories],async()=>{
+await db.vhistories.update(h.id,{check_out:now, moved_out:true});
+await db.vhistories.add({
+gid:h.gid, tid:newTid,
+check_in:now, check_out:null,
+entry_count:h.entry_count,
+current_count:h.current_count,
+billing_count:h.billing_count,
+set_min:CFG.set_min, manual_sets:null,
+is_cr:false, sequence:(getGroupHists(h.gid).length)+1,
+is_free:h.is_free,
+shimei_label:h.shimei_label,
+shimei_price:h.shimei_price,
+cast_name:h.cast_name,
+food_amount:h.food_amount,
+memo:h.memo,
+});
+});
+ST.selTid = newTid;
+closeModal();
+toast(`${newTbl.name}へ席移動完了`,‘info’);
+await refresh();
+_renderManageModal();
+}
+
+/* ========================================================
+会計モーダル
+======================================================== */
+function openBilling() {
+ST.bill_confirmed = false;
+_renderBillingModal(‘cash’);
+}
+let _payMethod = ‘cash’;
+
+function _renderBillingModal(payMethod) {
+_payMethod = payMethod;
+const h    = getActiveHist(ST.selTid);
+if(!h) return;
+const gh   = getGroupHists(h.gid);
+const sets = calcSets(gh);
+const bill = calcBill(sets, h.billing_count, h.shimei_price||0, h.food_amount||0);
+const tbl  = ST.tables.find(t=>t.tid===ST.selTid);
+
+const isCash = payMethod===‘cash’;
+const bigAmt = isCash ? bill.cashBig : bill.cardBig;
+const diffCard = bill.cardBig - bill.cashBig;
+
+showModal(handle(sheetHdr(‘会計確定’,
+badge(h.gid,’#fbbf24’,‘rgba(245,158,11,.18)’)
+) + ` <div class="sheet-body"> <!-- 支払い方法 --> <div class="slbl">支払い方法</div> <div class="btn-grp" style="margin-bottom:16px"> <button class="btn-pay ${isCash?'btn-pay-cash':'btn-pay-off'}" onclick="_renderBillingModal('cash')">💴 現金</button> <button class="btn-pay ${!isCash?'btn-pay-card':'btn-pay-off'}" onclick="_renderBillingModal('card')">💳 カード</button> </div> <!-- 内訳 --> <div class="billtbl"> <div class="br"><span class="br-l">セット料金 (¥${CFG.set_price.toLocaleString()}×${h.billing_count}名×${sets}S)</span><span class="br-v">${fmtYen(bill.setAmt)}</span></div> <div class="br"><span class="br-l">指名料 (${h.shimei_label||'なし'})</span><span class="br-v">${fmtYen(h.shimei_price||0)}</span></div> <div class="br"><span class="br-l">飲食・ボトル代</span><span class="br-v">${fmtYen(h.food_amount||0)}</span></div> <div class="br bold"><span class="br-l">税抜小計</span><span class="br-v">${fmtYen(bill.preTotal)}</span></div> <div class="br"><span class="br-l">サービス料 (${(CFG.svc*100).toFixed(0)}%)</span><span class="br-v">${fmtYen(bill.svcAmt)}</span></div> <div class="br"><span class="br-l">消費税 (${(CFG.tax*100).toFixed(0)}%)</span><span class="br-v">${fmtYen(bill.taxAmt)}</span></div> ${!isCash?`<div class="br"><span class="br-l">カードTAX (${(CFG.card_tax*100).toFixed(0)}%)</span><span class="br-v">${fmtYen(diffCard)}</span></div>`:''} <div class="br bold" style="background:${isCash?'rgba(251,191,36,.07)':'rgba(167,139,250,.07)'}"> <span class="br-l" style="color:${isCash?'#fbbf24':'#a78bfa'}">${isCash?'💴 現金お会計':'💳 カードお会計'}</span> <span class="br-v" style="color:${isCash?'#fbbf24':'#a78bfa'};font-size:20px">${fmtYen(bigAmt)}</span> </div> <div class="br"><span class="br-l" style="font-size:11px">（参考）会計大計÷(1+TAX+SVC) = 小計</span><span class="br-v" style="font-size:11px">${fmtYen(bill.small)}</span></div> </div> <!-- 確認 --> <div class="ck-row"> <input type="checkbox" id="bill-ck" ${ST.bill_confirmed?'checked':''} onchange="ST.bill_confirmed=this.checked;_updateBillBtn()"/> <label for="bill-ck">金額を確認しました</label> </div> <button class="btn btn-danger btn-full" id="bill-ok-btn" ${ST.bill_confirmed?'':'disabled'} onclick="doBillingConfirm('${payMethod}')"> 会計を確定して退店処理 </button> <button class="btn btn-sec btn-full" style="margin-top:8px" onclick="_renderManageModal()">戻る</button> </div>`));
+}
+function _updateBillBtn() {
+const btn = $(‘bill-ok-btn’);
+if(btn) btn.disabled = !ST.bill_confirmed;
+}
+
+async function doBillingConfirm(payMethod) {
+if(!ST.bill_confirmed) return;
+const h   = getActiveHist(ST.selTid);
+if(!h||h.id==null) return;
+const gh  = getGroupHists(h.gid);
+const sets= calcSets(gh);
+const bill= calcBill(sets,h.billing_count,h.shimei_price||0,h.food_amount||0);
+const isCash = payMethod===‘cash’;
+const bigAmt = isCash?bill.cashBig:bill.cardBig;
+const now = nowISO();
+const td  = todayStr();
+
+await db.transaction(‘rw’,[db.vgroups,db.vhistories,db.billings],async()=>{
+await db.vhistories.update(h.id,{check_out:now});
+await db.vgroups.where(‘gid’).equals(h.gid).modify({status:‘closed’,closed_at:now});
+await db.billings.add({
+gid:h.gid, tid:ST.selTid, date:td,
+sets, billing_count:h.billing_count,
+shimei_label:h.shimei_label||null,
+shimei_price:h.shimei_price||0,
+food_amount:h.food_amount||0,
+pre_total:bill.preTotal,
+svc_amt:bill.svcAmt,
+tax_amt:bill.taxAmt,
+cash_big:bill.cashBig,
+card_big:bill.cardBig,
+small_calc:bill.small,
+pay_method:payMethod,
+actual_amount:bigAmt,
+is_free:h.is_free,
+cast_name:h.cast_name||’’,
+confirmed_at:now,
+});
+});
+ST.bill_confirmed=false;
+closeModal();
+toast(`${h.gid} 会計完了 ${fmtYen(bigAmt)}`);
+await refresh();
+}
+
+/* ========================================================
+CR再入店
+======================================================== */
+function openCR(tid) {
+ST.selTid = tid;
+ST.cr_search = ‘’;
+_renderCRModal();
+}
+function _renderCRModal() {
+const closed = ST.groups.filter(g=>g.status===‘closed’);
+const filtered = closed.filter(g=>
+!ST.cr_search || g.gid.includes(ST.cr_search) || (g.memo||’’).includes(ST.cr_search)
+);
+const listHtml = filtered.length
+? filtered.map(g=>{
+const gh  = getGroupHists(g.gid);
+const sets= calcSets(gh);
+const lh  = gh[gh.length-1];
+const lastTbl = lh ? (ST.tables.find(t=>t.tid===lh.tid)?.name||lh.tid) : ‘-’;
+return `<div class="cr-item"> <div class="cr-inf"> <div class="cr-gid">${g.gid}</div> <div class="cr-det">退店 ${fmtTime(lh?.check_out)} / ${sets}SET / 課金${lh?.billing_count||0}名 / ${lastTbl}</div> ${g.memo?`<div class="cr-memo">${g.memo}</div>`:''} </div> <button class="btn btn-warn" style="min-height:44px;padding:8px 14px;font-size:13px;white-space:nowrap" onclick="doCREntry('${g.gid}')">選択</button> </div>`;
+}).join(’’)
+: ‘<div style="color:#334155;text-align:center;padding:28px;font-size:13px">退店済みグループなし</div>’;
+
+showModal(handle(sheetHdr(‘CR再入店’) + ` <div class="sheet-body"> <input class="searchbar" type="text" placeholder="🔍 組IDまたはメモで検索..." value="${ST.cr_search}" oninput="ST.cr_search=this.value;_renderCRModal()"/> <div class="cr-scr">${listHtml}</div> </div>`));
+}
+
+async function doCREntry(gid) {
+const gh    = getGroupHists(gid);
+const lastH = gh[gh.length-1];
+const prevBilling = lastH?.billing_count ?? 2;
+const now = nowISO();
+
+// CR: 組IDは維持、卓履歴を追加、statusをactiveに戻す
+await db.transaction(‘rw’,[db.vgroups,db.vhistories],async()=>{
+await db.vgroups.where(‘gid’).equals(gid).modify({status:‘active’});
+await db.vhistories.add({
+gid, tid:ST.selTid,
+check_in:now, check_out:null,
+entry_count:lastH?.current_count||2,
+current_count:lastH?.current_count||2,
+billing_count:prevBilling,
+set_min:CFG.set_min, manual_sets:null,
+is_cr:true, sequence:gh.length+1,
+is_free:lastH?.is_free??true,
+shimei_label:null, shimei_price:0,
+cast_name:’’, food_amount:0, memo:’’,
+});
+});
+closeModal();
+toast(`${gid} CR再入店完了`,‘info’);
+await refresh();
+_renderManageModal();
+}
+
+/* ========================================================
+ダッシュボード
+======================================================== */
+function renderDash() {
+const td = todayStr();
+const todayBills = ST.bills.filter(b=>b.date===td);
+const todayGroups= ST.groups.filter(g=>g.date===td);
+const totalSales = todayBills.reduce((a,b)=>a+(b.cash_big||0),0);
+const totalGuests= todayGroups.reduce((a,g)=>a+(g.total_billing||g.entry_count||0),0);
+const avgUnit    = todayBills.length ? Math.round(totalSales/todayBills.length) : 0;
+const activeH    = ST.hists.filter(h=>!h.check_out);
+const activePax  = activeH.reduce((a,h)=>a+(h.current_count||0),0);
+
+$(‘d-sales’).textContent   = fmtYen(totalSales);
+$(‘d-sales-sub’).textContent= `会計済み ${todayBills.length}組`;
+$(‘d-avg’).textContent     = fmtYen(avgUnit);
+$(‘d-active’).textContent  = `${new Set(activeH.map(h=>h.gid)).size}組`;
+$(‘d-active2’).textContent = `${activePax}名 稼働中`;
+$(‘d-total’).textContent   = `${todayGroups.length}組`;
+$(‘d-total2’).textContent  = `${totalGuests}名 累計`;
+
+// 会計履歴
+const histHtml = todayBills.length
+? […todayBills].reverse().map(b=>` <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)"> <div> <div style="font-size:12px;color:#a78bfa;font-weight:700">${b.gid}</div> <div style="font-size:11px;color:#475569">${fmtTime(b.confirmed_at)} / ${b.sets}SET / ${b.billing_count}名 / ${b.pay_method==='cash'?'現金':'カード'}</div> </div> <div style="font-size:15px;font-weight:700;color:${b.pay_method==='cash'?'#fbbf24':'#a78bfa'}">${fmtYen(b.actual_amount)}</div> </div>`).join(’’)
+: ‘<div style="color:#334155;padding:12px 0">まだありません</div>’;
+$(‘d-history’).innerHTML = histHtml;
+}
+
+/* ========================================================
+設定画面
+======================================================== */
+function renderSettings() {
+$(‘cfg-set-min’).textContent  = `${CFG.set_min}分`;
+$(‘cfg-set-price’).textContent= fmtYen(CFG.set_price);
+$(‘cfg-tax’).textContent      = `${(CFG.tax*100).toFixed(0)}%`;
+$(‘cfg-svc’).textContent      = `${(CFG.svc*100).toFixed(0)}%`;
+$(‘cfg-card’).textContent     = `${(CFG.card_tax*100).toFixed(0)}%`;
+$(‘cfg-hon’).textContent      = fmtYen(CFG.hon);
+$(‘cfg-banai’).textContent    = fmtYen(CFG.banai);
+$(‘cfg-dohan’).textContent    = fmtYen(CFG.dohan);
+}
+function openSettingsEdit() {
+showModal(handle(sheetHdr(‘料金設定を変更’) + ` <div class="sheet-body"> <div class="slbl">セット時間（分）</div> <input class="inp" type="number" inputmode="numeric" id="se-set-min" value="${CFG.set_min}"/> <div class="slbl">セット料金（円/1名）</div> <input class="inp" type="number" inputmode="numeric" id="se-set-price" value="${CFG.set_price}"/> <div class="slbl">消費税率（例: 0.10）</div> <input class="inp" type="number" inputmode="decimal" id="se-tax" step="0.01" value="${CFG.tax}"/> <div class="slbl">サービス料率（例: 0.10）</div> <input class="inp" type="number" inputmode="decimal" id="se-svc" step="0.01" value="${CFG.svc}"/> <div class="slbl">カードTAX率（例: 0.10）</div> <input class="inp" type="number" inputmode="decimal" id="se-card" step="0.01" value="${CFG.card_tax}"/> <div class="slbl">本指名料金（円）</div> <input class="inp" type="number" inputmode="numeric" id="se-hon" value="${CFG.hon}"/> <div class="slbl">場内指名料金（円）</div> <input class="inp" type="number" inputmode="numeric" id="se-banai" value="${CFG.banai}"/> <div class="slbl">同伴料金（円）</div> <input class="inp" type="number" inputmode="numeric" id="se-dohan" value="${CFG.dohan}"/> <button class="btn btn-pri btn-full" onclick="saveSettings()">保存</button> </div>`));
+}
+async function saveSettings() {
+const newCfg = {
+set_min:   parseInt($(‘se-set-min’)?.value)||40,
+set_price: parseInt($(‘se-set-price’)?.value)||3000,
+tax:       parseFloat($(‘se-tax’)?.value)||0.10,
+svc:       parseFloat($(‘se-svc’)?.value)||0.10,
+card_tax:  parseFloat($(‘se-card’)?.value)||0.10,
+hon:       parseInt($(‘se-hon’)?.value)||3000,
+banai:     parseInt($(‘se-banai’)?.value)||1500,
+dohan:     parseInt($(‘se-dohan’)?.value)||5000,
+};
+const existing = await db.settings.toCollection().last();
+if(existing) await db.settings.update(existing.id, newCfg);
+else          await db.settings.add(newCfg);
+CFG = {…DEF, …newCfg};
+closeModal();
+toast(‘設定を保存しました’);
+renderSettings();
+}
+async function confirmClearData() {
+showModal(handle(sheetHdr(‘データリセット確認’) + ` <div class="sheet-body"> <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:#f87171"> ⚠️ 全ての卓・組・会計データが削除されます。この操作は取り消せません。 </div> <button class="btn btn-danger btn-full" onclick="doClearData()">全データを削除する</button> <button class="btn btn-sec btn-full" style="margin-top:8px" onclick="closeModal()">キャンセル</button> </div>`));
+}
+async function doClearData() {
+await Promise.all([
+db.vgroups.clear(),
+db.vhistories.clear(),
+db.count_logs.clear(),
+db.billings.clear(),
+]);
+closeModal();
+toast(‘データをリセットしました’,‘info’);
+await refresh();
+}
+
+/* ========================================================
+定期更新
+======================================================== */
+async function refresh() {
+await loadAll();
+updateHeader();
+if($(‘pg-floor’).classList.contains(‘on’))    renderFloor();
+if($(‘pg-dash’).classList.contains(‘on’))     renderDash();
+if($(‘pg-settings’).classList.contains(‘on’)) renderSettings();
+}
+
+setInterval(async()=>{
+await refresh();
+// モーダル表示中は残り時間だけ更新
+const overlay = document.querySelector(’.overlay’);
+if(overlay && ST.selTid && getActiveHist(ST.selTid)) {
+// 時間バーのみ差し替え（入力中テキストを壊さないため完全再描画はしない）
+const h = getActiveHist(ST.selTid);
+if(!h) return;
+const gh = getGroupHists(h.gid);
+const sets = calcSets(gh);
+const rem = calcRemMin(h.check_in, sets);
+const rf = fmtRem(rem);
+const rc = rf.cls===‘over’?’#f87171’:rf.cls===‘warn’?’#fbbf24’:’#34d399’;
+const bill = calcBill(sets,h.billing_count,h.shimei_price||0,h.food_amount||0);
+// timebar内の残り時間と暫定会計だけ更新
+document.querySelectorAll(’.ti-v’).forEach((el,i)=>{
+if(i===1) el.textContent = rf.text, el.style.color=rc;
+if(i===2) el.textContent = fmtYen(bill.cashBig);
+});
+}
+}, 30000);
+
+/* ========================================================
+起動
+======================================================== */
+(async()=>{
+await loadAll();
+updateHeader();
+renderFloor();
+$(‘loader’).style.display=‘none’;
+$(‘app’) && ($(‘app’).style.display=’’);
+// app要素がないのでbodyを表示
+document.querySelectorAll(’.page,.tb-item,#hdr’).forEach(el=>{});
+})();
 </script>
+
 </body>
 </html>
