@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#06060e" />
+  <title>NOCTUA — Floor Management</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/4.0.11/dexie.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ===== リセット・ベース ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+    body {
+      background: #06060e;
+      color: #e2e8f0;
+      font-family: 'Noto Sans JP', sans-serif;
+      min-height: 100svh;
+      overscroll-behavior: none;
+    }
+    input, button, select { font-family: inherit; }
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: #2d1f5e; border-radius: 3px; }
+
+```
+/* ===== アニメーション ===== */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(167,139,250,.5); }
+  70%  { box-shadow: 0 0 0 8px rgba(167,139,250,0); }
+  100% { box-shadow: 0 0 0 0 rgba(167,139,250,0); }
+}
+@keyframes slide-up {
+  from { transform: translateY(32px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; } to { opacity: 1; }
+}
+@keyframes toast-in {
+  from { transform: translate(-50%, 12px); opacity: 0; }
+  to   { transform: translate(-50%, 0);    opacity: 1; }
+}
+
+/* ===== 背景 ===== */
+#bg-glow {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(ellipse 80% 50% at 50% -5%, rgba(88,28,235,.2) 0%, transparent 65%);
+}
+
+/* ===== ヘッダー ===== */
+#header {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  height: 52px;
+  background: rgba(6,6,14,.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(124,58,237,.25);
+}
+#logo { display: flex; align-items: center; gap: 8px; }
+#logo-gem {
+  color: #a78bfa; font-size: 17px;
+  filter: drop-shadow(0 0 7px #7c3aed);
+}
+#logo-text {
+  font-family: 'Cinzel', serif;
+  font-size: 16px; font-weight: 700;
+  letter-spacing: .15em; color: #e2e8f0;
+}
+#header-stats { display: flex; gap: 16px; align-items: center; }
+.h-stat { text-align: center; }
+.h-stat-num { font-size: 16px; font-weight: 700; line-height: 1; }
+.h-stat-label { font-size: 9px; color: #475569; margin-top: 1px; letter-spacing: .04em; }
+
+/* ===== フロア ===== */
+#main { padding: 14px 12px 80px; position: relative; z-index: 1; }
+.section-header {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10px; font-weight: 700; color: #64748b;
+  letter-spacing: .12em; text-transform: uppercase;
+  margin-bottom: 10px; margin-top: 4px;
+}
+.section-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #7c3aed; box-shadow: 0 0 7px #7c3aed;
+  display: inline-block; flex-shrink: 0;
+}
+.table-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 9px; margin-bottom: 20px;
+}
+
+/* ===== 卓カード ===== */
+.table-card {
+  position: relative; border-radius: 13px;
+  padding: 13px 13px 11px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.07);
+  background: rgba(15,15,25,.75);
+  min-height: 110px;
+  transition: transform .12s, box-shadow .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.table-card:active { transform: scale(.97); }
+.table-card.active {
+  border-color: rgba(124,58,237,.5);
+  background: rgba(124,58,237,.08);
+}
+.table-card.warn {
+  border-color: rgba(245,158,11,.5);
+  background: rgba(245,158,11,.06);
+}
+.table-card.over {
+  border-color: rgba(239,68,68,.55);
+  background: rgba(239,68,68,.07);
+}
+.card-pulse {
+  position: absolute; top: 10px; right: 10px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #7c3aed;
+  animation: pulse-ring 2s infinite;
+}
+.card-pulse.warn  { background: #f59e0b; }
+.card-pulse.over  { background: #ef4444; }
+.card-name { font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+.card-gid  { font-size: 10px; color: #7c3aed; margin-bottom: 7px; letter-spacing: .04em; }
+.card-cr-tag { color: #fbbf24; margin-left: 5px; }
+.card-stats { display: flex; gap: 6px; margin-bottom: 7px; }
+.card-stat  { flex: 1; text-align: center; }
+.card-stat-label { font-size: 8px; color: #475569; font-weight: 700; }
+.card-stat-val   { font-size: 13px; font-weight: 700; color: #e2e8f0; }
+.card-remaining  { font-size: 12px; font-weight: 700; text-align: center; color: #34d399; }
+.card-remaining.warn { color: #fbbf24; }
+.card-remaining.over { color: #f87171; }
+.card-empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px; padding-top: 10px;
+}
+.card-empty-icon  { font-size: 24px; color: #1e293b; font-weight: 300; }
+.card-empty-label { font-size: 10px; color: #334155; letter-spacing: .06em; }
+.card-empty-badge {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+  background: rgba(100,116,139,.15); color: #475569;
+  border: 1px solid rgba(100,116,139,.2);
+}
+.cr-float-btn {
+  position: absolute; bottom: 8px; right: 8px;
+  font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 5px;
+  background: rgba(245,158,11,.15); color: #fbbf24;
+  border: 1px solid rgba(245,158,11,.3); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== モーダルオーバーレイ ===== */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex; align-items: flex-end;
+  animation: fade-in .2s ease;
+}
+.modal-sheet {
+  width: 100%;
+  max-height: 93svh;
+  background: #0d0d1a;
+  border-top: 1px solid rgba(124,58,237,.35);
+  border-radius: 20px 20px 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: 0 -8px 48px rgba(124,58,237,.18);
+  animation: slide-up .25s ease;
+}
+.modal-handle {
+  display: flex; justify-content: center; padding: 10px 0 0;
+}
+.modal-handle-bar {
+  width: 40px; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,.12);
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 12px 18px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  flex-shrink: 0;
+}
+.modal-title { font-size: 18px; font-weight: 700; }
+.modal-subtitle { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+.modal-close {
+  background: rgba(255,255,255,.07); border: none;
+  color: #94a3b8; width: 36px; height: 36px;
+  border-radius: 8px; font-size: 15px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.modal-body {
+  overflow-y: auto; padding: 14px 18px 20px; flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ===== バッジ ===== */
+.badge {
+  display: inline-block;
+  font-size: 11px; font-weight: 700;
+  padding: 2px 9px; border-radius: 5px;
+}
+
+/* ===== セクションラベル ===== */
+.sec-label {
+  font-size: 10px; font-weight: 700; color: #475569;
+  letter-spacing: .1em; text-transform: uppercase;
+  margin-bottom: 9px; margin-top: 4px;
+}
+
+/* ===== ステータスボックス ===== */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 7px; margin-bottom: 14px; }
+.stat-box {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 10px; padding: 9px 4px; text-align: center;
+}
+.stat-box-label { font-size: 9px; color: #64748b; font-weight: 700; margin-bottom: 3px; }
+.stat-box-val   { font-size: 22px; font-weight: 700; color: #e2e8f0; line-height: 1; }
+.stat-box-unit  { font-size: 10px; font-weight: 400; }
+
+/* ===== 時間バー ===== */
+.time-bar {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 7px; margin-bottom: 18px;
+  padding: 11px; border-radius: 10px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.05);
+}
+.time-item { text-align: center; }
+.time-label { font-size: 9px; color: #475569; font-weight: 700; margin-bottom: 3px; }
+.time-val   { font-size: 13px; font-weight: 700; color: #94a3b8; }
+
+/* ===== ボタン共通 ===== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10px; border: 1px solid transparent;
+  min-height: 48px; padding: 10px 14px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: opacity .12s, transform .1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { opacity: .72; transform: scale(.96); }
+.btn-primary {
+  width: 100%; min-height: 54px; font-size: 16px;
+  background: linear-gradient(135deg,rgba(124,58,237,.75),rgba(167,139,250,.5));
+  color: #fff; border: none;
+  box-shadow: 0 4px 20px rgba(124,58,237,.28);
+  letter-spacing: .05em;
+}
+.btn-checkout {
+  width: 100%; min-height: 54px; font-size: 16px;
+  background: rgba(245,158,11,.2); color: #fef3c7;
+  border: 1px solid rgba(245,158,11,.45);
+  letter-spacing: .05em; margin-bottom: 10px;
+}
+.btn-danger {
+  width: 100%; min-height: 54px; font-size: 16px;
+  background: rgba(239,68,68,.18); color: #fef2f2;
+  border: 1px solid rgba(239,68,68,.45);
+  letter-spacing: .05em;
+}
+.btn-danger:disabled { background: rgba(100,116,139,.15); color: #475569; border-color: rgba(100,116,139,.2); cursor: not-allowed; }
+.btn-join  { background: rgba(52,211,153,.12); color: #34d399; border-color: rgba(52,211,153,.3); flex: 1; }
+.btn-leave { background: rgba(248,113,113,.12); color: #f87171; border-color: rgba(248,113,113,.3); flex: 1; }
+.btn-ghost { background: rgba(100,116,139,.1); color: #64748b; border-color: rgba(100,116,139,.2); }
+
+/* ===== 人数選択グリッド ===== */
+.count-grid { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 18px; }
+.btn-count  { flex: 1 1 44px; min-height: 52px; font-size: 15px;
+              background: rgba(124,58,237,.12); color: #a78bfa;
+              border: 1px solid rgba(124,58,237,.25); border-radius: 10px; cursor: pointer;
+              font-weight: 700; transition: all .12s;
+              -webkit-tap-highlight-color: transparent; }
+.btn-count:active  { transform: scale(.95); }
+.btn-count.selected { background: rgba(124,58,237,.6); color: #fff; border-color: rgba(124,58,237,.8); }
+
+/* ===== 人数操作 ===== */
+.count-ops { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.count-op-label { font-size: 10px; color: #64748b; font-weight: 700; margin-bottom: 6px; }
+.count-op-btns  { display: flex; gap: 6px; }
+
+/* ===== 指名ボタン ===== */
+.shimei-grid { display: flex; gap: 7px; margin-bottom: 18px; }
+.btn-shimei {
+  flex: 1; min-height: 54px; border-radius: 10px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; cursor: pointer; transition: all .12s;
+  background: rgba(232,121,249,.07); color: #c084fc;
+  border: 1px solid rgba(232,121,249,.2);
+  font-size: 13px; font-weight: 700;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-shimei:active  { transform: scale(.95); }
+.btn-shimei.selected { background: rgba(232,121,249,.25); color: #f0abfc; border-color: rgba(232,121,249,.5); }
+.shimei-price { font-size: 11px; font-weight: 500; opacity: .8; }
+
+/* ===== インプット ===== */
+.input {
+  width: 100%; background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 10px;
+  padding: 13px 14px; color: #e2e8f0;
+  font-size: 16px; outline: none; /* 16px: iOSズーム防止 */
+  font-family: 'Noto Sans JP', sans-serif;
+  margin-bottom: 16px;
+}
+.input:focus { border-color: rgba(124,58,237,.5); }
+.input-wrap { position: relative; }
+.input-prefix {
+  position: absolute; left: 14px; top: 50%;
+  transform: translateY(-50%);
+  color: #64748b; font-weight: 700; font-size: 15px;
+  pointer-events: none;
+}
+.input-wrap .input { padding-left: 28px; }
+
+/* ===== 変動ログ ===== */
+.log-list {
+  max-height: 100px; overflow-y: auto;
+  padding: 8px; border-radius: 8px;
+  background: rgba(0,0,0,.25); margin-bottom: 16px;
+}
+.log-item { display: flex; gap: 8px; font-size: 11px; margin-bottom: 3px; align-items: center; }
+.log-type { font-weight: 700; min-width: 32px; }
+.log-time { color: #475569; }
+.log-info { color: #94a3b8; }
+
+/* ===== 会計テーブル ===== */
+.bill-table {
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 12px; overflow: hidden; margin-bottom: 18px;
+}
+.bill-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 13px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.bill-row:last-child { border-bottom: none; }
+.bill-label { font-size: 12px; color: #64748b; }
+.bill-val   { font-size: 13px; font-weight: 500; color: #94a3b8; }
+.bill-row.bold .bill-label { color: #e2e8f0; font-weight: 700; }
+.bill-row.bold .bill-val   { font-size: 15px; font-weight: 700; color: #e2e8f0; }
+
+/* ===== CRリスト ===== */
+.cr-list { max-height: 55svh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.cr-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px; border-radius: 10px; margin-bottom: 7px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.07);
+}
+.cr-info   { flex: 1; }
+.cr-gid    { font-size: 12px; color: #a78bfa; font-weight: 700; margin-bottom: 3px; }
+.cr-detail { font-size: 11px; color: #64748b; }
+.cr-memo   { font-size: 11px; color: #a78bfa; }
+.btn-cr-select {
+  background: rgba(245,158,11,.18); color: #fbbf24;
+  border: 1px solid rgba(245,158,11,.35);
+  border-radius: 9px; padding: 10px 14px;
+  min-height: 44px; font-size: 13px; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== 確認チェックボックス ===== */
+.confirm-row {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 18px;
+}
+.confirm-row input[type=checkbox] {
+  width: 22px; height: 22px; cursor: pointer; accent-color: #7c3aed; flex-shrink: 0;
+}
+.confirm-row label { font-size: 14px; color: #94a3b8; cursor: pointer; }
+
+/* ===== トースト通知 ===== */
+#toast {
+  position: fixed; top: 62px; left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 22px; border-radius: 10px;
+  color: #fff; font-weight: 700; font-size: 13px;
+  z-index: 9999; white-space: nowrap;
+  box-shadow: 0 4px 24px rgba(0,0,0,.5);
+  animation: toast-in .25s ease;
+  pointer-events: none;
+}
+
+/* ===== フッター ===== */
+#footer {
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255,255,255,.04);
+  font-size: 10px; color: #1e293b;
+  display: flex; justify-content: space-between;
+  position: relative; z-index: 1;
+}
+```
+
+  </style>
+</head>
+<body>
+
+<div id="bg-glow"></div>
+
+<div id="toast" style="display:none"></div>
+
+<!-- ヘッダー -->
+
+<header id="header">
+  <div id="logo">
+    <span id="logo-gem">◆</span>
+    <span id="logo-text">NOCTUA</span>
+  </div>
+  <div id="header-stats">
+    <div class="h-stat">
+      <div class="h-stat-num" id="stat-active" style="color:#a78bfa">0</div>
+      <div class="h-stat-label">使用中</div>
+    </div>
+    <div class="h-stat">
+      <div class="h-stat-num" id="stat-empty" style="color:#64748b">8</div>
+      <div class="h-stat-label">空席</div>
+    </div>
+    <div class="h-stat">
+      <div class="h-stat-num" id="stat-clock" style="color:#fbbf24">--:--</div>
+      <div class="h-stat-label">現在時刻</div>
+    </div>
+  </div>
+</header>
+
+<!-- フロアマップ -->
+
+<main id="main"></main>
+
+<!-- モーダルコンテナ -->
+
+<div id="modal-container"></div>
+
+<footer id="footer">
+  <span>IndexedDB (Dexie.js) — オフライン対応</span>
+  <span style="color:#7c3aed">TAX 10% / SVC 10% / Card +10%</span>
+</footer>
+
+<script>
+// ============================================================
+// 定数
+// ============================================================
+const SET_MINUTES  = 40;
+const SET_PRICE    = 3000;
+const TAX_RATE     = 0.10;
+const SERVICE_RATE = 0.10;
+const CARD_TAX     = 0.10;
+
+const SHIMEI_OPTIONS = [
+  { label: '本指名', price: 3000 },
+  { label: '場内',   price: 1500 },
+  { label: '同伴',   price: 5000 },
+];
+
+const TABLES_MASTER = [
+  { id:'T1', name:'1番卓', section:'VIP' },
+  { id:'T2', name:'2番卓', section:'VIP' },
+  { id:'T3', name:'3番卓', section:'メイン' },
+  { id:'T4', name:'4番卓', section:'メイン' },
+  { id:'T5', name:'5番卓', section:'メイン' },
+  { id:'T6', name:'6番卓', section:'カウンター' },
+  { id:'T7', name:'7番卓', section:'カウンター' },
+  { id:'T8', name:'8番卓', section:'カウンター' },
+];
+
+// ============================================================
+// Dexie DB
+// ============================================================
+const db = new Dexie('KyabakuraDB');
+db.version(1).stores({
+  visit_groups:     '++id, group_id, status',
+  visit_histories:  '++id, group_id, table_id, check_in, is_cr',
+  guest_count_logs: '++id, group_id, history_id',
+  billing_records:  '++id, group_id',
+});
+
+// ============================================================
+// ユーティリティ
+// ============================================================
+function generateGroupId(existingIds) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,'0');
+  const d = String(now.getDate()).padStart(2,'0');
+  const prefix = `${y}${m}${d}`;
+  const nums = existingIds
+    .filter(id => id.startsWith(prefix))
+    .map(id => parseInt((id.split('-')[1])||'0'))
+    .filter(n => !isNaN(n));
+  const next = nums.length > 0 ? Math.max(...nums)+1 : 1;
+  return `${prefix}-${String(next).padStart(3,'0')}`;
+}
+
+function calcSets(histories) {
+  if (!histories.length) return 0;
+  const h0 = histories[0];
+  if (h0.manual_sets != null) return h0.manual_sets;
+  const totalMs = histories.reduce((acc,h) => {
+    const inn = new Date(h.check_in).getTime();
+    const out = h.check_out ? new Date(h.check_out).getTime() : Date.now();
+    return acc + Math.max(0, out - inn);
+  }, 0);
+  return Math.max(1, Math.ceil(totalMs / 60000 / SET_MINUTES));
+}
+
+function calcBilling(sets, billingCount, shimeiPrice, foodAmount) {
+  const subtotal  = SET_PRICE * billingCount * sets + shimeiPrice + foodAmount;
+  const cashTotal = Math.round(subtotal * (1+SERVICE_RATE) * (1+TAX_RATE));
+  const cardTotal = Math.round(cashTotal * (1+CARD_TAX));
+  return { subtotal, cashTotal, cardTotal };
+}
+
+function fmtTime(iso) {
+  if (!iso) return '--:--';
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function fmtYen(n) {
+  return `¥${Number(n).toLocaleString('ja-JP')}`;
+}
+
+function calcRemaining(checkIn, sets) {
+  const expected = new Date(checkIn).getTime() + sets * SET_MINUTES * 60000;
+  return Math.round((expected - Date.now()) / 60000);
+}
+
+function fmtRemaining(min) {
+  if (min <= 0) return { text:`超過 ${Math.abs(min)}分`, cls:'over' };
+  if (min < 15) return { text:`残 ${min}分`, cls:'warn' };
+  if (min < 60) return { text:`残 ${min}分`, cls:'' };
+  return { text:`残 ${Math.floor(min/60)}h${min%60}m`, cls:'' };
+}
+
+let toastTimer = null;
+function showToast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.background = type==='err'  ? 'rgba(220,38,38,.92)'
+                       : type==='info' ? 'rgba(109,40,217,.92)'
+                       : 'rgba(5,150,105,.92)';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.display='none'; }, 3000);
+}
+
+// ============================================================
+// アプリ状態
+// ============================================================
+let state = {
+  selectedTableId: null,
+  modalType: null,  // 'new'|'manage'|'billing'|'cr'
+  newCount: 2,
+  newMemo: '',
+  crSearch: '',
+  billConfirmed: false,
+  // DBから取得したキャッシュ
+  groups: [],
+  histories: [],
+  logs: [],
+};
+
+// ============================================================
+// DB取得 → 再描画
+// ============================================================
+async function loadAndRender() {
+  state.groups    = await db.visit_groups.toArray();
+  state.histories = await db.visit_histories.toArray();
+  state.logs      = await db.guest_count_logs.toArray();
+  renderFloor();
+  renderModal();
+  updateHeader();
+}
+
+// ============================================================
+// ヘッダー更新
+// ============================================================
+function updateHeader() {
+  const activeIds = new Set(state.histories.filter(h=>!h.check_out).map(h=>h.table_id));
+  document.getElementById('stat-active').textContent = activeIds.size;
+  document.getElementById('stat-empty').textContent  = TABLES_MASTER.length - activeIds.size;
+  const now = new Date();
+  document.getElementById('stat-clock').textContent  =
+    `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+}
+
+// ============================================================
+// フロアマップ描画
+// ============================================================
+function getActiveHistory(tableId) {
+  return state.histories.find(h => h.table_id===tableId && !h.check_out);
+}
+function getGroupHistories(groupId) {
+  return state.histories.filter(h => h.group_id===groupId);
+}
+
+function renderFloor() {
+  const sections = [...new Set(TABLES_MASTER.map(t=>t.section))];
+  const closedGroups = state.groups.filter(g=>g.status==='closed');
+  let html = '';
+  sections.forEach(section => {
+    html += `<div class="section-header"><span class="section-dot"></span>${section}</div>`;
+    html += '<div class="table-grid">';
+    TABLES_MASTER.filter(t=>t.section===section).forEach(table => {
+      const h = getActiveHistory(table.id);
+      const isActive = !!h;
+      if (isActive) {
+        const gHistories = getGroupHistories(h.group_id);
+        const sets = calcSets(gHistories);
+        const rem  = calcRemaining(h.check_in, sets);
+        const remFmt = fmtRemaining(rem);
+        const cls = remFmt.cls;
+        html += `
+          <div class="table-card active ${cls}" onclick="openManage('${table.id}')">
+            <span class="card-pulse ${cls}"></span>
+            <div class="card-name">${table.name}</div>
+            <div class="card-gid">${h.group_id}${h.is_cr?'<span class="card-cr-tag">CR</span>':''}</div>
+            <div class="card-stats">
+              <div class="card-stat">
+                <div class="card-stat-label">現在</div>
+                <div class="card-stat-val">${h.current_count}<small>名</small></div>
+              </div>
+              <div class="card-stat">
+                <div class="card-stat-label">課金</div>
+                <div class="card-stat-val" style="color:#fbbf24">${h.billing_count}<small>名</small></div>
+              </div>
+              <div class="card-stat">
+                <div class="card-stat-label">SET</div>
+                <div class="card-stat-val" style="color:#a78bfa">${sets}</div>
+              </div>
+            </div>
+            <div class="card-remaining ${cls}">${remFmt.text}</div>
+          </div>`;
+      } else {
+        const hasCR = closedGroups.length > 0;
+        html += `
+          <div class="table-card" onclick="openNew('${table.id}')">
+            <div class="card-name">${table.name}</div>
+            <span class="card-empty-badge">空席</span>
+            <div class="card-empty">
+              <div class="card-empty-icon">+</div>
+              <div class="card-empty-label">案内する</div>
+            </div>
+            ${hasCR ? `<button class="cr-float-btn" onclick="event.stopPropagation();openCR('${table.id}')">CR</button>` : ''}
+          </div>`;
+      }
+    });
+    html += '</div>';
+  });
+  document.getElementById('main').innerHTML = html;
+}
+
+// ============================================================
+// モーダル描画
+// ============================================================
+function renderModal() {
+  const container = document.getElementById('modal-container');
+  if (!state.modalType) { container.innerHTML=''; return; }
+
+  let content = '';
+  if      (state.modalType==='new')     content = renderNewModal();
+  else if (state.modalType==='manage')  content = renderManageModal();
+  else if (state.modalType==='billing') content = renderBillingModal();
+  else if (state.modalType==='cr')      content = renderCRModal();
+
+  container.innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-sheet" onclick="event.stopPropagation()">
+        ${content}
+      </div>
+    </div>`;
+}
+
+function closeModal() {
+  state.modalType = null;
+  state.billConfirmed = false;
+  renderModal();
+}
+
+// --- 新規入店モーダル ---
+function renderNewModal() {
+  const table = TABLES_MASTER.find(t=>t.id===state.selectedTableId);
+  const counts = [1,2,3,4,5,6].map(n => `
+    <button class="btn-count ${state.newCount===n?'selected':''}" onclick="setNewCount(${n})">${n}名</button>
+  `).join('');
+  return `
+    <div class="modal-handle"><div class="modal-handle-bar"></div></div>
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">${table.name} — 新規入店</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="sec-label">入店人数</div>
+      <div class="count-grid">${counts}</div>
+      <div class="sec-label">メモ（予約名など）</div>
+      <input class="input" type="text" placeholder="任意"
+        value="${state.newMemo}" oninput="state.newMemo=this.value" />
+      <button class="btn btn-primary" onclick="doNewEntry()">入店処理を確定</button>
+    </div>`;
+}
+
+// --- 卓管理モーダル ---
+function renderManageModal() {
+  const table = TABLES_MASTER.find(t=>t.id===state.selectedTableId);
+  const h = getActiveHistory(state.selectedTableId);
+  if (!h) { closeModal(); return ''; }
+  const gHistories = getGroupHistories(h.group_id);
+  const sets    = calcSets(gHistories);
+  const rem     = calcRemaining(h.check_in, sets);
+  const remFmt  = fmtRemaining(rem);
+  const shimeiPrice = h.shimei_price||0;
+  const foodAmount  = h.food_amount||0;
+  const bill    = calcBilling(sets, h.billing_count, shimeiPrice, foodAmount);
+  const logs    = state.logs.filter(l=>l.group_id===h.group_id);
+  const isCR    = gHistories.some(x=>x.is_cr);
+
+  const shimeiHTML = SHIMEI_OPTIONS.map(opt => `
+    <button class="btn-shimei ${h.shimei_label===opt.label?'selected':''}"
+      onclick="doShimei('${opt.label}',${opt.price})">
+      <span>${opt.label}</span>
+      <span class="shimei-price">${fmtYen(opt.price)}</span>
+    </button>`).join('');
+
+  const logsHTML = logs.length ? logs.map(l=>`
+    <div class="log-item">
+      <span class="log-type" style="color:${l.change_type==='entry'?'#60a5fa':l.change_type==='join'?'#34d399':'#f87171'}">
+        ${l.change_type==='entry'?'入店':l.change_type==='join'?'合流':'退席'}
+      </span>
+      <span class="log-time">${fmtTime(l.logged_at)}</span>
+      <span class="log-info">現在${l.current_count}名/課金${l.billing_count}名</span>
+    </div>`).join('')
+    : '<div style="color:#334155;text-align:center;font-size:12px">ログなし</div>';
+
+  const remColor = remFmt.cls==='over'?'#f87171':remFmt.cls==='warn'?'#fbbf24':'#34d399';
+
+  return `
+    <div class="modal-handle"><div class="modal-handle-bar"></div></div>
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">${table.name}</div>
+        <div class="modal-subtitle">
+          <span class="badge" style="background:rgba(124,58,237,.2);color:#a78bfa;border:1px solid rgba(124,58,237,.35)">${h.group_id}</span>
+          ${isCR?'<span class="badge" style="background:rgba(245,158,11,.2);color:#fbbf24;border:1px solid rgba(245,158,11,.35)">CR</span>':''}
+          ${h.manual_sets!=null?'<span class="badge" style="background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3)">手動</span>':''}
+          ${h.shimei_label?`<span class="badge" style="background:rgba(232,121,249,.2);color:#f0abfc;border:1px solid rgba(232,121,249,.35)">${h.shimei_label}</span>`:''}
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-box-label">入店</div>
+          <div class="stat-box-val">${h.entry_count}<span class="stat-box-unit">名</span></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-label">現在</div>
+          <div class="stat-box-val">${h.current_count}<span class="stat-box-unit">名</span></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-label">課金</div>
+          <div class="stat-box-val" style="color:#fbbf24">${h.billing_count}<span class="stat-box-unit">名</span></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-label">SET</div>
+          <div class="stat-box-val" style="color:#a78bfa">${sets}<span class="stat-box-unit">S</span></div>
+        </div>
+      </div>
+
+      <div class="time-bar">
+        <div class="time-item">
+          <div class="time-label">入店時刻</div>
+          <div class="time-val">${fmtTime(h.check_in)}</div>
+        </div>
+        <div class="time-item">
+          <div class="time-label">残り時間</div>
+          <div class="time-val" style="color:${remColor};font-weight:700">${remFmt.text}</div>
+        </div>
+        <div class="time-item">
+          <div class="time-label">暫定(現金)</div>
+          <div class="time-val" style="color:#fbbf24;font-weight:700">${fmtYen(bill.cashTotal)}</div>
+        </div>
+      </div>
+
+      <div class="sec-label">人数操作</div>
+      <div class="count-ops">
+        <div>
+          <div class="count-op-label">合流</div>
+          <div class="count-op-btns">
+            <button class="btn btn-join" onclick="doCount(1,'join')">+1</button>
+            <button class="btn btn-join" onclick="doCount(2,'join')">+2</button>
+            <button class="btn btn-join" onclick="doCount(3,'join')">+3</button>
+          </div>
+        </div>
+        <div>
+          <div class="count-op-label">退席</div>
+          <div class="count-op-btns">
+            <button class="btn btn-leave" onclick="doCount(1,'leave')">-1</button>
+            <button class="btn btn-leave" onclick="doCount(2,'leave')">-2</button>
+            <button class="btn btn-leave" onclick="doCount(3,'leave')">-3</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-label">指名</div>
+      <div class="shimei-grid">${shimeiHTML}</div>
+
+      <div class="sec-label">飲食・ボトル代</div>
+      <div class="input-wrap">
+        <span class="input-prefix">¥</span>
+        <input class="input" type="number" inputmode="numeric" placeholder="0"
+          value="${h.food_amount||''}" oninput="doFood(this.value)" />
+      </div>
+
+      <div class="sec-label">セット手動修正</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
+        <input class="input" type="number" inputmode="numeric"
+          placeholder="自動: ${sets}S"
+          value="${h.manual_sets!=null?h.manual_sets:''}"
+          oninput="doManualSets(this.value)"
+          style="width:110px;margin-bottom:0" />
+        <span style="color:#475569;font-size:12px">${SET_MINUTES}分/セット</span>
+        ${h.manual_sets!=null?`<button class="btn btn-ghost" style="padding:8px 12px;font-size:12px;min-height:40px" onclick="doManualSets('')">リセット</button>`:''}
+      </div>
+
+      <div class="sec-label">人数変動ログ</div>
+      <div class="log-list">${logsHTML}</div>
+
+      <button class="btn btn-checkout" onclick="openBilling()">会計・退店</button>
+    </div>`;
+}
+
+// --- 会計モーダル ---
+function renderBillingModal() {
+  const h = getActiveHistory(state.selectedTableId);
+  if (!h) return '';
+  const gHistories = getGroupHistories(h.group_id);
+  const sets = calcSets(gHistories);
+  const shimeiPrice = h.shimei_price||0;
+  const foodAmount  = h.food_amount||0;
+  const bill = calcBilling(sets, h.billing_count, shimeiPrice, foodAmount);
+  const svcAmt  = Math.round(bill.subtotal * SERVICE_RATE);
+  const taxAmt  = Math.round(bill.subtotal * (1+SERVICE_RATE) * TAX_RATE);
+  const cardDif = bill.cardTotal - bill.cashTotal;
+
+  return `
+    <div class="modal-handle"><div class="modal-handle-bar"></div></div>
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">会計確定</div>
+        <div class="modal-subtitle">
+          <span class="badge" style="background:rgba(245,158,11,.2);color:#fbbf24;border:1px solid rgba(245,158,11,.35)">${h.group_id}</span>
+        </div>
+      </div>
+      <button class="modal-close" onclick="openManage2()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="bill-table">
+        <div class="bill-row">
+          <span class="bill-label">セット料金 (¥${SET_PRICE.toLocaleString()}×${h.billing_count}名×${sets}S)</span>
+          <span class="bill-val">${fmtYen(SET_PRICE*h.billing_count*sets)}</span>
+        </div>
+        <div class="bill-row">
+          <span class="bill-label">指名料 (${h.shimei_label||'なし'})</span>
+          <span class="bill-val">${fmtYen(shimeiPrice)}</span>
+        </div>
+        <div class="bill-row">
+          <span class="bill-label">飲食・ボトル代</span>
+          <span class="bill-val">${fmtYen(foodAmount)}</span>
+        </div>
+        <div class="bill-row bold">
+          <span class="bill-label">─ 小計</span>
+          <span class="bill-val">${fmtYen(bill.subtotal)}</span>
+        </div>
+        <div class="bill-row">
+          <span class="bill-label">サービス料 (10%)</span>
+          <span class="bill-val">${fmtYen(svcAmt)}</span>
+        </div>
+        <div class="bill-row">
+          <span class="bill-label">消費税 (10%)</span>
+          <span class="bill-val">${fmtYen(taxAmt)}</span>
+        </div>
+        <div class="bill-row bold" style="background:rgba(251,191,36,.06)">
+          <span class="bill-label" style="color:#fbbf24">💴 現金お会計</span>
+          <span class="bill-val" style="color:#fbbf24;font-size:18px">${fmtYen(bill.cashTotal)}</span>
+        </div>
+        <div class="bill-row bold" style="background:rgba(232,121,249,.06)">
+          <span class="bill-label" style="color:#f0abfc">💳 カードお会計 (+${fmtYen(cardDif)})</span>
+          <span class="bill-val" style="color:#f0abfc;font-size:18px">${fmtYen(bill.cardTotal)}</span>
+        </div>
+      </div>
+
+      <div class="confirm-row">
+        <input type="checkbox" id="bill-confirm" ${state.billConfirmed?'checked':''}
+          onchange="state.billConfirmed=this.checked;renderModal()" />
+        <label for="bill-confirm">金額を確認しました</label>
+      </div>
+
+      <button class="btn btn-danger" ${state.billConfirmed?'':'disabled'} onclick="doBillingConfirm()">
+        会計を確定して退店処理
+      </button>
+    </div>`;
+}
+
+// --- CRモーダル ---
+function renderCRModal() {
+  const table = TABLES_MASTER.find(t=>t.id===state.selectedTableId);
+  const closed = state.groups.filter(g=>g.status==='closed');
+  const filtered = closed.filter(g =>
+    !state.crSearch ||
+    g.group_id.includes(state.crSearch) ||
+    (g.memo||'').includes(state.crSearch)
+  );
+  const listHTML = filtered.length ? filtered.map(g => {
+    const gH  = getGroupHistories(g.group_id);
+    const sets = calcSets(gH);
+    const lastH = gH[gH.length-1];
+    return `
+      <div class="cr-item">
+        <div class="cr-info">
+          <div class="cr-gid">${g.group_id}</div>
+          <div class="cr-detail">退店 ${fmtTime(lastH&&lastH.check_out)} / ${sets}SET / 課金${lastH?lastH.billing_count:0}名</div>
+          ${g.memo?`<div class="cr-memo">${g.memo}</div>`:''}
+        </div>
+        <button class="btn-cr-select" onclick="doCREntry('${g.group_id}')">選択</button>
+      </div>`;
+  }).join('')
+  : '<div style="color:#334155;text-align:center;padding:28px;font-size:13px">退店済みグループなし</div>';
+
+  return `
+    <div class="modal-handle"><div class="modal-handle-bar"></div></div>
+    <div class="modal-header">
+      <div><div class="modal-title">${table.name} — CR再入店</div></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input class="input" type="text" placeholder="組IDまたはメモで検索..."
+        value="${state.crSearch}" oninput="state.crSearch=this.value;renderModal()" />
+      <div class="cr-list">${listHTML}</div>
+    </div>`;
+}
+
+// ============================================================
+// 操作ハンドラ（グローバル関数）
+// ============================================================
+function openNew(tableId) {
+  state.selectedTableId = tableId;
+  state.modalType = 'new';
+  state.newCount = 2; state.newMemo = '';
+  renderModal();
+}
+function openManage(tableId) {
+  state.selectedTableId = tableId;
+  state.modalType = 'manage';
+  renderModal();
+}
+function openManage2() {
+  state.modalType = 'manage';
+  state.billConfirmed = false;
+  renderModal();
+}
+function openBilling() {
+  state.modalType = 'billing';
+  state.billConfirmed = false;
+  renderModal();
+}
+function openCR(tableId) {
+  state.selectedTableId = tableId;
+  state.modalType = 'cr';
+  state.crSearch = '';
+  renderModal();
+}
+
+function setNewCount(n) {
+  state.newCount = n;
+  renderModal();
+}
+
+async function doNewEntry() {
+  const allIds  = state.groups.map(g=>g.group_id);
+  const groupId = generateGroupId(allIds);
+  const now     = new Date().toISOString();
+  const count   = state.newCount;
+
+  await db.transaction('rw', [db.visit_groups, db.visit_histories, db.guest_count_logs], async () => {
+    await db.visit_groups.add({ group_id:groupId, status:'active', memo:state.newMemo, created_at:now, updated_at:now });
+    const hid = await db.visit_histories.add({
+      group_id:groupId, table_id:state.selectedTableId,
+      check_in:now, entry_count:count, current_count:count, billing_count:count,
+      set_minutes:SET_MINUTES, manual_sets:null, is_cr:false, sequence:1,
+      shimei_label:null, shimei_price:0, food_amount:0,
+    });
+    await db.guest_count_logs.add({
+      group_id:groupId, history_id:hid,
+      change_type:'entry', delta:count,
+      current_count:count, billing_count:count, logged_at:now,
+    });
+  });
+  closeModal();
+  showToast(`${groupId} 入店処理完了`);
+  await loadAndRender();
+}
+
+async function doCount(delta, type) {
+  const h = getActiveHistory(state.selectedTableId);
+  if (!h || h.id==null) return;
+  const newCurrent = Math.max(1, h.current_count + (type==='leave' ? -delta : delta));
+  const newBilling = type==='join' ? h.billing_count + delta : h.billing_count;
+  const now = new Date().toISOString();
+  await db.transaction('rw',[db.visit_histories,db.guest_count_logs], async()=>{
+    await db.visit_histories.update(h.id, { current_count:newCurrent, billing_count:newBilling });
+    await db.guest_count_logs.add({
+      group_id:h.group_id, history_id:h.id,
+      change_type:type, delta, current_count:newCurrent, billing_count:newBilling, logged_at:now,
+    });
+  });
+  showToast(type==='join'?`+${delta}名 合流`:`-${delta}名 退席`, 'info');
+  await loadAndRender();
+}
+
+async function doShimei(label, price) {
+  const h = getActiveHistory(state.selectedTableId);
+  if (!h || h.id==null) return;
+  const same = h.shimei_label === label;
+  await db.visit_histories.update(h.id, {
+    shimei_label: same ? null : label,
+    shimei_price: same ? 0    : price,
+  });
+  await loadAndRender();
+}
+
+async function doFood(val) {
+  const h = getActiveHistory(state.selectedTableId);
+  if (!h || h.id==null) return;
+  const n = parseInt(val.replace(/[^0-9]/g,''))||0;
+  await db.visit_histories.update(h.id, { food_amount:n });
+  await loadAndRender();
+}
+
+async function doManualSets(val) {
+  const h = getActiveHistory(state.selectedTableId);
+  if (!h || h.id==null) return;
+  const n = val==='' ? null : Math.max(1, parseInt(val)||1);
+  await db.visit_histories.update(h.id, { manual_sets:n });
+  await loadAndRender();
+}
+
+async function doBillingConfirm() {
+  if (!state.billConfirmed) return;
+  const h = getActiveHistory(state.selectedTableId);
+  if (!h || h.id==null) return;
+  const gHistories = getGroupHistories(h.group_id);
+  const sets       = calcSets(gHistories);
+  const shimeiPrice= h.shimei_price||0;
+  const foodAmount = h.food_amount||0;
+  const bill       = calcBilling(sets, h.billing_count, shimeiPrice, foodAmount);
+  const now        = new Date().toISOString();
+
+  await db.transaction('rw',[db.visit_groups,db.visit_histories,db.billing_records], async()=>{
+    await db.visit_histories.update(h.id, { check_out:now });
+    await db.visit_groups.where('group_id').equals(h.group_id).modify({ status:'closed', updated_at:now });
+    await db.billing_records.add({
+      group_id:h.group_id, history_id:h.id,
+      sets, billing_count:h.billing_count,
+      shimei_price:shimeiPrice, food_amount:foodAmount,
+      subtotal:bill.subtotal, cash_total:bill.cashTotal, card_total:bill.cardTotal,
+      confirmed_at:now,
+    });
+  });
+  closeModal();
+  showToast(`${h.group_id} 会計完了 ${fmtYen(bill.cashTotal)}`);
+  await loadAndRender();
+}
+
+async function doCREntry(groupId) {
+  const g  = state.groups.find(x=>x.group_id===groupId);
+  if (!g) return;
+  const gH = getGroupHistories(groupId);
+  const lastH = gH[gH.length-1];
+  const prevBilling = lastH ? lastH.billing_count : 2;
+  const now = new Date().toISOString();
+
+  await db.transaction('rw',[db.visit_groups,db.visit_histories], async()=>{
+    await db.visit_groups.where('group_id').equals(groupId).modify({ status:'active', updated_at:now });
+    await db.visit_histories.add({
+      group_id:groupId, table_id:state.selectedTableId,
+      check_in:now, entry_count:2, current_count:2, billing_count:prevBilling,
+      set_minutes:SET_MINUTES, manual_sets:null, is_cr:true, sequence:gH.length+1,
+      shimei_label:null, shimei_price:0, food_amount:0,
+    });
+  });
+  closeModal();
+  showToast(`${groupId} CR再入店`, 'info');
+  await loadAndRender();
+}
+
+// ============================================================
+// 定期更新（残り時間の再計算）
+// ============================================================
+setInterval(async () => {
+  await loadAndRender();
+}, 30000);
+
+// ============================================================
+// 起動
+// ============================================================
+loadAndRender();
+</script>
+
+</body>
+</html>
